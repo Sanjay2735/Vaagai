@@ -1,0 +1,103 @@
+/* ==============================
+   IMAGE ZOOM ON HOVER
+============================== */
+
+.zoom > .zi,
+.zoom .zi {
+  transition: transform 1.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+  will-change: transform;
+}
+
+.zoom:hover > .zi,
+.zoom:hover .zi {
+  transform: scale(1.06);
+}
+
+/* ==============================
+   AMBIENT LEAF DECORATION (STATIC TEXTURE)
+   Static atmospheric gradient without continuous swaying or GPU thrashing
+============================== */
+
+.leaf {
+  background:
+    radial-gradient(ellipse 40% 30% at 20% 30%,
+      rgba(0, 0, 0, 0.28),
+      transparent 70%),
+    radial-gradient(ellipse 30% 40% at 75% 60%,
+      rgba(0, 0, 0, 0.25),
+      transparent 70%),
+    radial-gradient(ellipse 25% 20% at 50% 90%,
+      rgba(0, 0, 0, 0.2),
+      transparent 70%);
+  animation: none;
+  pointer-events: none;
+}
+
+/* ==============================
+   REVEAL UTILITIES
+============================== */
+
+.rv {
+  opacity: 0;
+  transition: opacity 0.45s ease-out;
+}
+
+.rv.in,
+.scroll-visible .rv,
+.hero-section .rv,
+#hero .rv {
+  opacity: 1;
+}
+
+.rv-l,
+.rv-r {
+  /* Zero lateral displacement to prevent horizontal overflow */
+}
+
+/* ===================================================
+   GLOBAL SECTION VISIBILITY & SCROLL REVEAL
+   All page content remains visible by default.
+   Only explicit scroll-reveal participants (.section-reveal, .fade-section)
+   transition gently into view.
+=================================================== */
+
+/* All sections, footer, and structural elements are solid and visible by default */
+main section,
+footer,
+.section-bloom,
+.section-split-wing,
+.section-floating-seals,
+.section-curtain-wave,
+.section-regal-head {
+  opacity: 1;
+}
+
+/* Ornamental Seam */
+.section-seam {
+  opacity: 0.6;
+}
+
+/* Explicit Scroll-Reveal Participants (e.g. Artistry, KalaBanner) */
+.section-reveal,
+.fade-section {
+  opacity: 0;
+  transition: opacity 0.5s ease-out;
+}
+
+.section-reveal.scroll-visible,
+.fade-section.scroll-visible {
+  opacity: 1;
+}
+
+/* Section Sub-elements and Product Cards (Stationary, Stable, Zero Jitter) */
+.product-wave-card {
+  opacity: 1;
+}
+
+.seal-badge {
+  opacity: 1;
+}
+
+.reveal-item {
+  opacity: 1;
+}

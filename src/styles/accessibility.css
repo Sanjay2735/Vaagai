@@ -1,0 +1,88 @@
+/* ===================================================
+   ACCESSIBILITY & PREFERS-REDUCED-MOTION
+=================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .section-bloom,
+  .section-split-wing,
+  .section-floating-seals,
+  .section-curtain-wave,
+  .section-regal-head,
+  .section-reveal,
+  .wing-left,
+  .wing-right,
+  .seal-badge,
+  .product-wave-card,
+  .reveal-item,
+  .gold-divider .gold-line {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+    animation: none !important;
+    width: 76px !important;
+  }
+
+  .gold-divider .gold-diamond {
+    opacity: 1 !important;
+    transform: rotate(45deg) !important;
+    filter: none !important;
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .zoom > .zi,
+  .zoom .zi,
+  .zoom:hover > .zi,
+  .zoom:hover .zi {
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .leaf {
+    animation: none !important;
+  }
+
+  .rv,
+  .rv-l,
+  .rv-r {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+  }
+}
+
+/* ===================================================
+   PRINT STYLES: Guaranteed Fallback Visibility
+=================================================== */
+@media print {
+  main section,
+  footer,
+  .section-seam,
+  .fade-section,
+  .section-bloom,
+  .section-split-wing,
+  .section-floating-seals,
+  .section-curtain-wave,
+  .section-regal-head,
+  .section-reveal,
+  .wing-left,
+  .wing-right,
+  .seal-badge,
+  .product-wave-card,
+  .reveal-item,
+  .rv,
+  .rv-l,
+  .rv-r {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+  }
+}
+

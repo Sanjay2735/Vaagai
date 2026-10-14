@@ -1,0 +1,101 @@
+/* ==============================
+   GLOBAL SETTINGS & RESET
+============================== */
+
+:root {
+  --font-primary: 'Jost', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+
+html {
+  background: #3A070F;
+  scroll-padding-top: 88px;
+  font-family: var(--font-primary);
+}
+
+main section[id],
+section[id] {
+  scroll-margin-top: 5.5rem;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 12%,
+      rgba(122, 22, 38, 0.45) 0%,
+      transparent 60%),
+    radial-gradient(ellipse 70% 60% at 85% 45%,
+      rgba(155, 34, 56, 0.35) 0%,
+      transparent 60%),
+    radial-gradient(ellipse 60% 50% at 25% 85%,
+      rgba(212, 175, 55, 0.1) 0%,
+      transparent 65%),
+    linear-gradient(180deg,
+      #380710 0%,
+      #4F0B17 30%,
+      #681220 50%,
+      #4F0B17 80%,
+      #2A050B 100%);
+  background-attachment: fixed;
+  color: #F8EFDD;
+  font-family: var(--font-primary);
+  overflow-x: hidden;
+}
+
+/* Ensure buttons, inputs, selects, and textareas inherit the primary font */
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: inherit;
+}
+
+/* ==============================
+   TYPOGRAPHY & ACCENTS
+============================== */
+
+.cap {
+  font-family: var(--font-primary);
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.ul {
+  position: relative;
+}
+
+.ul:after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  height: 1px;
+  width: 100%;
+  background: #D4AF37;
+  box-shadow: 0 0 8px rgba(212, 175, 55, 0.6);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.4s ease;
+}
+
+.ul:hover:after {
+  transform: scaleX(1);
+}
+
+/* ==============================
+   SCROLLBAR
+============================== */
+
+::-webkit-scrollbar {
+  width: 0;
+}
