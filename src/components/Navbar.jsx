@@ -3,7 +3,7 @@ import { useShop } from '../context/ShopContext';
 import { Ico, ICONS } from './Icons';
 import { PRODUCTS, formatINR } from '../data/products';
 
-export function Navbar() {
+export function Navbar({ activePageKey = 'collection' }) {
   const { cart, wish, openCart, addToCart, toggleWishlist } = useShop();
 
   const [open, setOpen] = useState(false);
@@ -13,7 +13,7 @@ export function Navbar() {
   const [isHovered, setIsHovered] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Header background activates solid glass if scrolled or hovered
+  const isLight = activePageKey === 'collection';
   const isSolid = isScrolled || isHovered;
 
   const searchInputRef = useRef(null);
@@ -49,7 +49,6 @@ export function Navbar() {
     }
 
     return () => {
-      // Cleanup on unmount
       if (isBodyLockedRef.current) {
         isBodyLockedRef.current = false;
         document.body.style.overflow = originalOverflowRef.current;
@@ -120,34 +119,37 @@ export function Navbar() {
   // Filter wishlisted products from catalog
   const wishItems = PRODUCTS.filter((p) => wish.includes(p.id));
 
-  // Elegant navigation link with refined gold hover underline animation
+  // Elegant navigation link with active state indicator
   const NavLink = ({ href, children, onClick }) => {
+    const isLinkActive =
+      (href === '#new-arrivals' && activePageKey === 'new-arrivals') ||
+      ((href === '#collection' || href === '#/collection') && activePageKey === 'collection') ||
+      ((href === '#kalakaari' || href === '#/kalakaari') && activePageKey === 'kalakaari') ||
+      ((href === '#home' || href === '#/home') && activePageKey === 'home');
+
     const handleClick = (e) => {
       if (onClick) onClick(e);
 
-      // Handle reliable anchor scrolling when navigating on the Home page
       if (href && href.startsWith('#')) {
         const isPageNav =
+          href === '#collection' ||
+          href === '#/collection' ||
           href === '#women-new' ||
           href === '#/women-new' ||
           href === '#kalakaari' ||
-          href === '#/kalakaari';
-        const currentHash = window.location.hash || '#/';
-        const isCurrentHome =
-          !currentHash ||
-          currentHash === '#/' ||
-          currentHash.startsWith('#new') ||
-          currentHash.startsWith('#best') ||
-          currentHash.startsWith('#story') ||
-          currentHash.startsWith('#explore') ||
-          currentHash.startsWith('#trust');
+          href === '#/kalakaari' ||
+          href === '#new-arrivals' ||
+          href === '#/new-arrivals' ||
+          href === '#home' ||
+          href === '#/home';
+        const currentHash = window.location.hash || '#/collection';
+        const isCurrentHome = currentHash === '#home' || currentHash === '#/home';
 
         if (!isPageNav && isCurrentHome) {
           const targetId = href.replace(/^#\/?/, '#');
           if (targetId === '#' || targetId === '#/') {
             window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
           } else {
-            // Smoothly scroll to the target section with navbar clearance
             setTimeout(() => {
               const el = document.querySelector(targetId);
               if (el) {
@@ -171,7 +173,11 @@ export function Navbar() {
       <a
         href={href}
         onClick={handleClick}
-        className="relative py-1 text-ivory hover:text-gold transition-colors duration-300 font-primary text-xs tracking-widest uppercase font-medium after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-[1.5px] after:bg-gradient-to-r after:from-transparent after:via-[#D4AF37] after:to-transparent after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300 after:origin-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded"
+        className={`relative py-1 font-primary text-xs tracking-widest uppercase font-medium transition-colors duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-[1.5px] after:bg-gradient-to-r after:from-transparent after:via-[#D4AF37] after:to-transparent after:transition-transform after:duration-300 after:origin-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded ${
+          isLinkActive
+            ? 'text-gold after:scale-x-100 shadow-[0_1px_8px_rgba(212,175,55,0.25)]'
+            : 'text-ivory hover:text-gold after:scale-x-0 hover:after:scale-x-100'
+        }`}
       >
         {children}
       </a>
@@ -181,22 +187,14 @@ export function Navbar() {
   // Center Brand Logo
   const logo = (
     <a
-      href="#/"
+      href="#home"
       onClick={() => {
-        const currentHash = window.location.hash || '#/';
-        const isCurrentHome =
-          !currentHash ||
-          currentHash === '#/' ||
-          currentHash.startsWith('#new') ||
-          currentHash.startsWith('#best') ||
-          currentHash.startsWith('#story') ||
-          currentHash.startsWith('#explore');
-        if (isCurrentHome) {
+        if (activePageKey === 'home') {
           window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
         }
       }}
       className="flex flex-col items-center justify-center gap-1 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded-lg px-2 py-0.5 select-none"
-      aria-label="Vaagai - Return to Home"
+      aria-label="Vaagai - Indian Ethnic Wear"
     >
       <span className="w-10 h-10 sm:w-11 sm:h-11 rounded-full border border-gold/80 flex items-center justify-center font-primary text-xl sm:text-2xl text-gold group-hover:bg-gold group-hover:text-forest group-hover:shadow-[0_0_18px_rgba(212,175,55,0.5)] transition-all duration-300 bg-[#240409]/60 backdrop-blur-md">
         V
@@ -215,11 +213,11 @@ export function Navbar() {
         className="fixed top-0 inset-x-0 z-40 py-2.5 sm:py-3 transition-all duration-500 ease-out"
         style={{ paddingTop: 'max(env(safe-area-inset-top), 10px)' }}
       >
-        {/* Silky smooth full-header glassmorphism overlay with ambient glow */}
+        {/* Full-header glassmorphism overlay with ambient glow */}
         <div
           className={`absolute inset-0 -z-10 transition-opacity duration-500 ease-in-out pointer-events-none ${
-            isSolid ? 'opacity-100' : 'opacity-0'
-          } bg-[#4F0B17]/70 backdrop-blur-[20px] border-b border-gold/20 shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_25px_rgba(79,11,23,0.5),inset_0_1px_0_rgba(255,255,255,0.08)]`}
+            isSolid ? 'opacity-100' : 'opacity-90'
+          } bg-[#4F0B17]/75 backdrop-blur-[20px] border-b border-gold/20 shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_25px_rgba(79,11,23,0.5),inset_0_1px_0_rgba(255,255,255,0.08)]`}
         />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-3 items-center">
@@ -228,8 +226,8 @@ export function Navbar() {
             aria-label="Primary Navigation"
             className="hidden md:flex items-center gap-6 lg:gap-8 justify-self-start"
           >
-            <NavLink href="#/">Home</NavLink>
-            <NavLink href="#women-new">Women</NavLink>
+            <NavLink href="#home">Home</NavLink>
+            <NavLink href="#collection">Collection</NavLink>
             <NavLink href="#kalakaari">Kalakaari</NavLink>
           </nav>
 
@@ -257,9 +255,9 @@ export function Navbar() {
               aria-label="Secondary Navigation"
               className="hidden lg:flex items-center gap-6 xl:gap-8"
             >
-              <NavLink href="#new">New Arrivals</NavLink>
-              <NavLink href="#best">Best Sellers</NavLink>
-              <NavLink href="#story">Our Story</NavLink>
+              <NavLink href="#new-arrivals">New Arrivals</NavLink>
+              <NavLink href="#collection">Sarees</NavLink>
+              <NavLink href="#home">Our Story</NavLink>
             </nav>
 
             {/* Utility Action Buttons */}
@@ -627,22 +625,22 @@ export function Navbar() {
 
             {/* Navigation Links Stack */}
             <nav aria-label="Mobile Navigation" className="flex flex-col gap-4 sm:gap-5 mt-6">
-              <NavLink href="#/" onClick={() => setOpen(false)}>
+              <NavLink href="#home" onClick={() => setOpen(false)}>
                 Home
               </NavLink>
-              <NavLink href="#women-new" onClick={() => setOpen(false)}>
-                Women
+              <NavLink href="#collection" onClick={() => setOpen(false)}>
+                Collection
               </NavLink>
               <NavLink href="#kalakaari" onClick={() => setOpen(false)}>
                 Kalakaari
               </NavLink>
-              <NavLink href="#new" onClick={() => setOpen(false)}>
+              <NavLink href="#new-arrivals" onClick={() => setOpen(false)}>
                 New Arrivals
               </NavLink>
-              <NavLink href="#best" onClick={() => setOpen(false)}>
-                Best Sellers
+              <NavLink href="#collection" onClick={() => setOpen(false)}>
+                Sarees
               </NavLink>
-              <NavLink href="#story" onClick={() => setOpen(false)}>
+              <NavLink href="#home" onClick={() => setOpen(false)}>
                 Our Story
               </NavLink>
             </nav>

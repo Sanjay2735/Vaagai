@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { ShopProvider } from './context/ShopContext';
+import { ShopProvider, useShop } from './context/ShopContext';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { NewCollections } from './components/NewCollections';
@@ -10,29 +10,60 @@ import { Artistry } from './components/Artistry';
 import { PageHead } from './components/PageHead';
 import { Footer } from './components/Footer';
 import { CartDrawer } from './components/CartDrawer';
+import { CheckoutModal } from './components/CheckoutModal';
 import { PRODUCTS } from './data/products';
 import ScrollReveal from './components/ScrollReveal';
 import PageTransition from './components/PageTransition';
 import LaunchCurtain from './components/LaunchCurtain';
 
+import { CollectionPage } from './components/collection/CollectionPage';
+import { QuickViewModal } from './components/collection/QuickViewModal';
+import { NewArrivalsPage } from './components/runway/NewArrivalsPage';
+import {
+  KALAKAARI_PRODUCTS,
+  KALAKAARI_CATEGORIES,
+  KALAKAARI_FABRICS,
+  KALAKAARI_OCCASIONS,
+} from './data/collectionData';
+
 /**
  * Route Configuration & Resolution
- * Distinguishes full page views ('home' | 'women' | 'kalakaari')
- * from in-page homepage section anchors (#new, #best, #story, etc.)
+ * Distinguishes Home ('home', default landing), Collection ('collection'), Kalakaari ('kalakaari'), and New Arrivals ('new-arrivals')
  */
 const PAGE_KEYS = {
+  COLLECTION: 'collection',
   HOME: 'home',
-  WOMEN: 'women',
   KALAKAARI: 'kalakaari',
+  NEW_ARRIVALS: 'new-arrivals',
 };
 
 const HOME_ANCHORS = ['#new', '#best', '#story', '#explore', '#trust', '#hero'];
 
 function resolvePageKey(hash = '') {
   const cleanHash = (hash || '').trim();
-  if (cleanHash === '#women-new' || cleanHash === '#/women-new') return PAGE_KEYS.WOMEN;
-  if (cleanHash === '#kalakaari' || cleanHash === '#/kalakaari') return PAGE_KEYS.KALAKAARI;
-  // All homepage anchors (#new, #best, #story, #explore, #trust, #hero, #/, #, or empty) map to 'home'
+  if (
+    cleanHash === '#new-arrivals' ||
+    cleanHash === '#/new-arrivals' ||
+    cleanHash === '#runway' ||
+    cleanHash === '#/runway'
+  ) {
+    return PAGE_KEYS.NEW_ARRIVALS;
+  }
+  if (
+    cleanHash === '#collection' ||
+    cleanHash === '#/collection' ||
+    cleanHash === '#women-new' ||
+    cleanHash === '#/women-new' ||
+    cleanHash === '#sarees' ||
+    cleanHash === '#/sarees' ||
+    cleanHash === '#all-collection'
+  ) {
+    return PAGE_KEYS.COLLECTION;
+  }
+  if (cleanHash === '#kalakaari' || cleanHash === '#/kalakaari') {
+    return PAGE_KEYS.KALAKAARI;
+  }
+  // Default landing page is Home ('', '#', '#/', '#home', '#/home', '#story', '#explore', '#best', '#new', '#hero')
   return PAGE_KEYS.HOME;
 }
 
@@ -114,7 +145,13 @@ export default function App() {
     }
 
     const isStayingOnHome = activePageKey === PAGE_KEYS.HOME && prevPageKeyRef.current === PAGE_KEYS.HOME;
+    const pageChanged = activePageKey !== prevPageKeyRef.current;
     prevPageKeyRef.current = activePageKey;
+
+    if (pageChanged) {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      return;
+    }
 
     if (!isStayingOnHome) return;
 
@@ -162,21 +199,27 @@ export default function App() {
     []
   );
 
+  const isDedicatedPage =
+    activePageKey === PAGE_KEYS.COLLECTION ||
+    activePageKey === PAGE_KEYS.NEW_ARRIVALS ||
+    activePageKey === PAGE_KEYS.KALAKAARI;
+
   // Render current page content based on resolved route
   let pageContent;
 
-  if (activePageKey === PAGE_KEYS.WOMEN) {
-    pageContent = <NewCollections isPage={true} />;
+  if (activePageKey === PAGE_KEYS.NEW_ARRIVALS) {
+    pageContent = <NewArrivalsPage />;
+  } else if (activePageKey === PAGE_KEYS.COLLECTION) {
+    pageContent = <CollectionPage />;
   } else if (activePageKey === PAGE_KEYS.KALAKAARI) {
     pageContent = (
-      <>
-        <PageHead t="Kalakaari" s="Hand-Painted Heritage" />
-        <ProductGrid
-          list={kalamkariProducts}
-          title="Kalamkari Edit"
-          id="kala-edit"
-        />
-      </>
+      <CollectionPage
+        pageMode="kalakaari"
+        products={KALAKAARI_PRODUCTS}
+        categories={KALAKAARI_CATEGORIES}
+        fabrics={KALAKAARI_FABRICS}
+        occasions={KALAKAARI_OCCASIONS}
+      />
     );
   } else {
     // Default Home Page View
@@ -204,14 +247,18 @@ export default function App() {
   return (
     <ShopProvider>
       <div className="min-h-screen bg-forest text-ivory">
-        {/* Cinematic Launch Curtain (only plays once on site entry, dismissible) */}
-        <LaunchCurtain />
+        {/* Cinematic Launch Curtain (only plays once on site entry on home) */}
+        {activePageKey === PAGE_KEYS.HOME && <LaunchCurtain />}
 
         {/* Global Luxury Glassmorphism Navbar */}
-        <Navbar />
+        <Navbar activePageKey={activePageKey} />
 
         {/* Main Content Area */}
-        <main className="relative">
+        <main
+          className={`relative ${isDedicatedPage ? 'pt-[64px] sm:pt-[72px]' : ''} ${
+            activePageKey === PAGE_KEYS.NEW_ARRIVALS ? 'h-[100dvh] overflow-hidden' : ''
+          }`}
+        >
           {/* Stable global scroll reveal observer (tracks DOM mutations across page transitions) */}
           <ScrollReveal />
 
@@ -221,10 +268,30 @@ export default function App() {
           </PageTransition>
         </main>
 
-        {/* Global Site Footer & Slide-over Cart Drawer */}
-        <Footer />
+        {/* Global Site Footer (omitted on New Arrivals runway to keep viewport locked) */}
+        {activePageKey !== PAGE_KEYS.NEW_ARRIVALS && <Footer />}
         <CartDrawer />
+        <CheckoutModal
+          isOpen={route === '#checkout' || route === '#/checkout'}
+          onClose={() => {
+            window.location.hash = isCollectionPage ? '#collection' : '#home';
+          }}
+        />
+        <GlobalQuickViewModal />
       </div>
     </ShopProvider>
+  );
+}
+
+function GlobalQuickViewModal() {
+  const { quickViewProduct, quickViewVariantIndex, closeQuickView } = useShop();
+
+  return (
+    <QuickViewModal
+      product={quickViewProduct}
+      initialVariantIndex={quickViewVariantIndex}
+      isOpen={Boolean(quickViewProduct)}
+      onClose={closeQuickView}
+    />
   );
 }

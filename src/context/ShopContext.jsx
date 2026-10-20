@@ -28,19 +28,26 @@ function sanitizeCartItem(item) {
   if (Number.isNaN(rawQ) || !Number.isFinite(rawQ) || rawQ < 1) return null;
   const q = Math.min(99, Math.floor(rawQ));
 
-  // Validate Price
-  const rawP = Number(item.p);
+  // Validate Price (supports both p and price)
+  const rawP = Number(item.p !== undefined ? item.p : item.price);
   const p = !Number.isNaN(rawP) && Number.isFinite(rawP) && rawP >= 0 ? rawP : 0;
 
-  // Validate Name
-  const n = typeof item.n === 'string' && item.n.trim() ? item.n.trim() : `Saree #${id}`;
+  // Validate Name (supports both n and name)
+  const n =
+    typeof item.n === 'string' && item.n.trim()
+      ? item.n.trim()
+      : typeof item.name === 'string' && item.name.trim()
+      ? item.name.trim()
+      : `Saree #${id}`;
 
   return {
     ...item,
     id,
     q,
     p,
+    price: p,
     n,
+    name: n,
   };
 }
 
@@ -117,6 +124,8 @@ export function ShopProvider({ children }) {
   const [cart, setCart] = useState(getInitialCart);
   const [wish, setWish] = useState(getInitialWishlist);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [quickViewProduct, setQuickViewProduct] = useState(null);
+  const [quickViewVariantIndex, setQuickViewVariantIndex] = useState(0);
 
   // Synchronize cart changes to localStorage
   useEffect(() => {
@@ -209,11 +218,24 @@ export function ShopProvider({ children }) {
     setCart((prev) => prev.filter((item) => item.id !== id));
   }, []);
 
+  const clearCart = useCallback(() => {
+    setCart([]);
+  }, []);
+
   const toggleWishlist = useCallback((id) => {
     if (id === undefined || id === null || id === '') return;
     setWish((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
+  }, []);
+
+  const openQuickView = useCallback((product, variantIndex = 0) => {
+    setQuickViewProduct(product);
+    setQuickViewVariantIndex(variantIndex);
+  }, []);
+
+  const closeQuickView = useCallback(() => {
+    setQuickViewProduct(null);
   }, []);
 
   const value = useMemo(
@@ -226,7 +248,12 @@ export function ShopProvider({ children }) {
       addToCart,
       setQty,
       removeFromCart,
+      clearCart,
       toggleWishlist,
+      quickViewProduct,
+      quickViewVariantIndex,
+      openQuickView,
+      closeQuickView,
     }),
     [
       cart,
@@ -237,7 +264,12 @@ export function ShopProvider({ children }) {
       addToCart,
       setQty,
       removeFromCart,
+      clearCart,
       toggleWishlist,
+      quickViewProduct,
+      quickViewVariantIndex,
+      openQuickView,
+      closeQuickView,
     ]
   );
 

@@ -11,7 +11,7 @@ export default function LaunchCurtain() {
 
   const originalOverflowRef = useRef('');
   const revealTimerRef = useRef(null);
-  const safetyTimerRef = useRef(null);
+  const safetyTimerRef = useRef(null);  
   const hasSkippedRef = useRef(false);
   const isScrollUnlockedRef = useRef(false);
 

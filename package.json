@@ -6,7 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server": "node --watch server/src/server.js",
+    "server:init": "node server/src/db/init.js",
+    "server:seed": "node server/src/db/seed.js",
+    "server:setup": "node server/src/db/init.js && node server/src/db/seed.js",
+    "setup:server": "npm run server:setup",
+    "db:setup": "npm run server:setup"
   },
   "dependencies": {
     "framer-motion": "^14.1.0",

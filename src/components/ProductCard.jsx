@@ -1,19 +1,44 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useShop } from '../context/ShopContext';
 import { TONES } from '../data/tones';
 import { formatINR } from '../data/products';
 import { ICONS } from './Icons';
+import { EyeIcon } from './collection/CollectionIcons';
+import { getProductImages } from '../data/collectionData';
 
 export function ProductCard({ product, index = 0 }) {
-  const { wish, toggleWishlist, addToCart } = useShop();
+  const { wish, toggleWishlist, addToCart, openQuickView } = useShop();
   const [imageError, setImageError] = useState(false);
   const [isAdded, setIsAdded] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [mobileImageIndex, setMobileImageIndex] = useState(0); // 0 or 1 for mobile swipe/tap
+  const [isHeartAnimating, setIsHeartAnimating] = useState(false);
+
+  const touchStartXRef = useRef(null);
 
   const isWishlisted = wish.includes(product.id);
+  const productName = product.n || product.name || 'Artisanal Handloom Saree';
+  const productPrice = product.p || product.price || 2499;
 
-  // Destination route for product details (Kalakaari edit or Women collection)
-  const productHref =
-    product.a === 'kala' || product.b === 'kala' ? '#kalakaari' : '#women-new';
+  // Retrieve curated 4-image set for this product
+  const productImages = getProductImages(product);
+  const primaryImage = productImages[0] || product.image;
+  const secondaryImage = productImages[1] || primaryImage;
+  const isShowingSecondary = (isHovered || mobileImageIndex === 1) && Boolean(secondaryImage);
+
+  // Mobile Touch Swipe between primary and secondary image
+  const handleTouchStart = (e) => {
+    touchStartXRef.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e) => {
+    if (touchStartXRef.current === null) return;
+    const diff = touchStartXRef.current - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 35) {
+      setMobileImageIndex((prev) => (prev === 0 ? 1 : 0));
+    }
+    touchStartXRef.current = null;
+  };
 
   const handleQuickAdd = (e) => {
     e.preventDefault();
@@ -27,14 +52,38 @@ export function ProductCard({ product, index = 0 }) {
   const handleWishlistToggle = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    setIsHeartAnimating(true);
     toggleWishlist(product.id);
+    setTimeout(() => setIsHeartAnimating(false), 500);
+  };
+
+  const handleOpenQuickView = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (openQuickView) {
+      openQuickView(product, 0);
+    }
   };
 
   return (
     <div className="product-wave-card h-full">
-      <div className="glass-card group rounded-2xl p-2 sm:p-2.5 h-full flex flex-col justify-between transition-all duration-300 ease-out hover:-translate-y-1.5 motion-reduce:hover:translate-y-0 motion-reduce:transition-none hover:border-[#D4AF37]/45 hover:shadow-[0_18px_40px_rgba(0,0,0,0.55),0_0_20px_rgba(212,175,55,0.18)]">
+      <div
+        className="glass-card group rounded-2xl p-2 sm:p-2.5 h-full flex flex-col justify-between transition-all duration-300 ease-out hover:-translate-y-1.5 motion-reduce:hover:translate-y-0 motion-reduce:transition-none hover:border-[#D4AF37]/45 hover:shadow-[0_18px_40px_rgba(0,0,0,0.55),0_0_20px_rgba(212,175,55,0.18)]"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => {
+          setIsHovered(false);
+          setMobileImageIndex(0);
+        }}
+      >
         {/* Saree Image Container (Fixed 3:4 aspect ratio) */}
-        <div className="product-image-container relative aspect-[3/4] overflow-hidden rounded-xl bg-[#2D060E] select-none">
+        <div
+          className="product-image-container relative aspect-[3/4] overflow-hidden rounded-xl bg-[#2D060E] select-none cursor-pointer"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onClick={handleOpenQuickView}
+        >
           {/* Foundation Gradient Textures (Fabric Tones) */}
           <div
             className="product-image-layer absolute inset-0 transition-transform duration-1000 ease-out group-hover:scale-105 motion-reduce:group-hover:scale-100"
@@ -54,41 +103,50 @@ export function ProductCard({ product, index = 0 }) {
           />
           <div className="leaf absolute -inset-4 mix-blend-multiply opacity-40 pointer-events-none" />
 
-          {/* Saree Product Image with Fallback and Smooth Hover Zoom */}
-          {product.image && !imageError ? (
-            <a
-              href={productHref}
-              tabIndex="-1"
-              aria-hidden="true"
-              className="absolute inset-0 block cursor-pointer"
-            >
+          {/* Saree Product Images with Smooth Dual-Layer Crossfade */}
+          {primaryImage && !imageError ? (
+            <>
+              {/* Primary Flatlay / Catalog Shot */}
               <img
-                src={product.image}
-                alt={product.n}
+                src={primaryImage}
+                alt={productName}
                 loading="lazy"
                 onError={() => setImageError(true)}
-                className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-105 motion-reduce:group-hover:scale-100 will-change-transform"
+                className={`absolute inset-0 w-full h-full object-cover object-top transition-all duration-700 ease-in-out will-change-[opacity,transform] ${
+                  isShowingSecondary
+                    ? 'opacity-0 scale-105 pointer-events-none'
+                    : 'opacity-100 scale-100 group-hover:scale-105'
+                }`}
               />
-            </a>
+
+              {/* Secondary Draped / Editorial Shot */}
+              {secondaryImage && (
+                <img
+                  src={secondaryImage}
+                  alt={`${productName} alternate draped view`}
+                  loading="lazy"
+                  className={`absolute inset-0 w-full h-full object-cover object-top transition-all duration-700 ease-in-out will-change-[opacity,transform] ${
+                    isShowingSecondary
+                      ? 'opacity-100 scale-[1.03]'
+                      : 'opacity-0 scale-95 pointer-events-none'
+                  }`}
+                />
+              )}
+            </>
           ) : (
             /* Fallback Fabric Medallion when image is unavailable or loading fails */
-            <a
-              href={productHref}
-              tabIndex="-1"
-              aria-hidden="true"
-              className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center cursor-pointer"
-            >
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center cursor-pointer">
               <span className="w-12 h-12 rounded-full border border-gold/40 flex items-center justify-center font-primary text-xl text-gold bg-[#240409]/60 backdrop-blur-sm mb-2">
-                M
+                V
               </span>
               <span className="font-primary text-sm text-[#FBF4E4] font-light">
-                {product.n}
+                {productName}
               </span>
-            </a>
+            </div>
           )}
 
           {/* Gradient Vignette at Bottom for Contrast */}
-          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 via-black/25 to-transparent pointer-events-none" />
 
           {/* Wishlist Button with Filled/Outlined Heart */}
           <button
@@ -96,14 +154,14 @@ export function ProductCard({ product, index = 0 }) {
             onClick={handleWishlistToggle}
             aria-label={
               isWishlisted
-                ? `Remove ${product.n} from wishlist`
-                : `Add ${product.n} to wishlist`
+                ? `Remove ${productName} from wishlist`
+                : `Add ${productName} to wishlist`
             }
             className={`absolute top-2.5 right-2.5 sm:top-3 sm:right-3 w-8 h-8 sm:w-9 sm:h-9 rounded-full border flex items-center justify-center backdrop-blur-md shadow-md transition-all duration-300 z-20 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${
               isWishlisted
                 ? 'bg-[#2D060E]/90 text-gold border-gold shadow-[0_0_14px_rgba(212,175,55,0.45)]'
                 : 'bg-[#1F0307]/75 text-ivory/80 border-gold/30 hover:text-gold hover:border-gold/70'
-            }`}
+            } ${isHeartAnimating ? 'scale-125' : 'scale-100'}`}
           >
             <svg
               width="16"
@@ -118,12 +176,46 @@ export function ProductCard({ product, index = 0 }) {
             </svg>
           </button>
 
+          {/* Mobile 2-Image Indicator Dots (Tap or swipe to switch views) */}
+          <div
+            className="md:hidden absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-15 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-xs pointer-events-auto"
+            onClick={(e) => {
+              e.stopPropagation();
+              setMobileImageIndex((prev) => (prev === 0 ? 1 : 0));
+            }}
+            title="Tap to preview next image"
+          >
+            <span
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                mobileImageIndex === 0 ? 'w-3 bg-gold' : 'w-1.5 bg-ivory/40'
+              }`}
+            />
+            <span
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                mobileImageIndex === 1 ? 'w-3 bg-gold' : 'w-1.5 bg-ivory/40'
+              }`}
+            />
+          </div>
+
+          {/* Quick View Floating Pill Button (Revealed on desktop hover above quick add) */}
+          <div className="hidden md:flex absolute inset-x-0 bottom-12 px-3 items-center justify-center pointer-events-none z-15">
+            <button
+              type="button"
+              onClick={handleOpenQuickView}
+              className="pointer-events-auto opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 ease-out flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#240409]/95 text-gold border border-gold/50 text-[11px] font-semibold tracking-wide backdrop-blur-md shadow-[0_4px_16px_rgba(0,0,0,0.6)] hover:bg-gold hover:text-forest hover:border-gold active:scale-95"
+              aria-label={`Quick view ${productName}`}
+            >
+              <EyeIcon className="w-3.5 h-3.5" />
+              <span>Quick View</span>
+            </button>
+          </div>
+
           {/* Quick Add to Bag Button */}
           <button
             type="button"
             onClick={handleQuickAdd}
             disabled={isAdded}
-            aria-label={`Quick add ${product.n} to cart`}
+            aria-label={`Quick add ${productName} to cart`}
             className="cap absolute bottom-0 inset-x-0 bg-gold text-forest py-2.5 sm:py-3 font-semibold text-[10px] sm:text-[11px] tracking-wider uppercase translate-y-full group-hover:translate-y-0 group-focus-within:translate-y-0 max-md:translate-y-0 transition-transform duration-400 hover:bg-[#FFF4D4] active:scale-[0.98] shadow-[0_-4px_16px_rgba(212,175,55,0.35)] z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-inset"
           >
             {isAdded ? 'Added to Bag ✓' : 'Quick Add +'}
@@ -132,16 +224,15 @@ export function ProductCard({ product, index = 0 }) {
 
         {/* Product Details (Title & Price) */}
         <div className="px-1.5 pt-2 pb-0.5 flex flex-col justify-between flex-1">
-          <h3 className="font-primary text-base sm:text-lg md:text-xl font-normal leading-snug line-clamp-1 text-[#FBF4E4] hover:text-gold transition-colors duration-200">
-            <a
-              href={productHref}
-              className="focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gold rounded"
-            >
-              {product.n}
-            </a>
+          <h3
+            onClick={handleOpenQuickView}
+            className="font-primary text-base sm:text-lg md:text-xl font-normal leading-snug line-clamp-1 text-[#FBF4E4] hover:text-gold transition-colors duration-200 cursor-pointer"
+            title={productName}
+          >
+            {productName}
           </h3>
           <p className="cap text-gold mt-1 font-medium tracking-wider text-xs sm:text-sm">
-            {formatINR(product.p)}
+            {formatINR(productPrice)}
           </p>
         </div>
       </div>
