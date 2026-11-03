@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
+import logoVaagai from '../assests/images/Logo-Vaagai.jpeg';
 
 const luxuryEase = [0.72, 0, 0.18, 1];
 
@@ -115,9 +116,7 @@ export default function LaunchCurtain() {
         </button>
 
         <div className="flex flex-col items-center gap-2.5 sm:gap-3 text-center px-4">
-          <span className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-[#D4AF37] flex items-center justify-center font-primary text-3xl sm:text-4xl text-[#F5D982] bg-[#240409] shadow-[0_0_25px_rgba(212,175,55,0.4)]">
-            V
-          </span>
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-[#D4AF37] overflow-hidden bg-[#240409] shadow-[0_0_25px_rgba(212,175,55,0.4)]"><img src={logoVaagai} alt="VAAGAI" className="w-full h-full object-cover" /></div>
           <h1 className="font-primary text-2xl sm:text-3xl tracking-[0.28em] uppercase text-[#F8EFDD] font-light mt-1">
             Vaagai
           </h1>
@@ -271,9 +270,7 @@ export default function LaunchCurtain() {
           {/* Glowing Monogram Ring */}
           <div className="relative">
             {/* Medallion */}
-            <div className="w-16 h-16 xs:w-20 xs:h-20 sm:w-24 sm:h-24 rounded-full border-2 border-[#D4AF37] flex items-center justify-center font-primary text-3xl xs:text-4xl sm:text-5xl text-[#F5D982] shadow-[0_0_35px_rgba(212,175,55,0.55),inset_0_0_25px_rgba(212,175,55,0.3)] bg-[#240409]/90 backdrop-blur-md">
-              V
-            </div>
+            <div className="w-16 h-16 xs:w-20 xs:h-20 sm:w-24 sm:h-24 rounded-full border-2 border-[#D4AF37] overflow-hidden shadow-[0_0_35px_rgba(212,175,55,0.55),inset_0_0_25px_rgba(212,175,55,0.3)] bg-[#240409]/90 backdrop-blur-md"><img src={logoVaagai} alt="VAAGAI" className="w-full h-full object-cover" /></div>
             {/* Outer subtle orbital ring */}
             <div className="absolute -inset-2 sm:-inset-2.5 rounded-full border border-[#D4AF37]/35 shadow-[0_0_18px_rgba(212,175,55,0.25)] pointer-events-none" />
           </div>

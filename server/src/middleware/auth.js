@@ -2,6 +2,8 @@ import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'vaagai_super_secret_jwt_key_2026_artisanal_sarees_heritage';
 
+const ADMIN_ROLES = ['admin', 'super_admin', 'product_manager', 'order_manager', 'content_manager', 'support'];
+
 /**
  * Middleware: Requires a valid JWT token in Authorization header.
  */
@@ -31,7 +33,6 @@ export function authenticateToken(req, res, next) {
 
 /**
  * Middleware: Optional authentication. If token is provided, populates req.user.
- * If absent, req.user is null, allowing guest checkout or public actions.
  */
 export function optionalAuth(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -52,20 +53,49 @@ export function optionalAuth(req, res, next) {
 }
 
 /**
- * Middleware: Enforces that req.user has an 'admin' role.
+ * Middleware: Enforces that req.user has an administrative or staff role.
  */
 export function requireAdmin(req, res, next) {
-  if (!req.user || req.user.role !== 'admin') {
+  if (!req.user || !ADMIN_ROLES.includes(req.user.role)) {
     return res.status(403).json({
       success: false,
-      message: 'Forbidden. Admin privileges required for this action.',
+      message: 'Forbidden. Administrative privileges required for this action.',
     });
   }
   next();
+}
+
+/**
+ * Role-Based Access Control Middleware
+ */
+export function requireRole(...allowedRoles) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required.',
+      });
+    }
+
+    // super_admin always has access
+    if (req.user.role === 'super_admin' || req.user.role === 'admin') {
+      return next();
+    }
+
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: `Forbidden. Your role (${req.user.role}) does not have permission for this resource.`,
+      });
+    }
+
+    next();
+  };
 }
 
 export default {
   authenticateToken,
   optionalAuth,
   requireAdmin,
+  requireRole,
 };

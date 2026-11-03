@@ -3,22 +3,22 @@ import { useShop } from '../context/ShopContext';
 import { TONES } from '../data/tones';
 import { formatINR } from '../data/products';
 import { ICONS } from './Icons';
-import { EyeIcon } from './collection/CollectionIcons';
+import { HeartIcon, EyeIcon } from './collection/CollectionIcons';
 import { getProductImages } from '../data/collectionData';
 
-export function ProductCard({ product, index = 0 }) {
+export function ProductCard({ product, index = 0, isLight = false }) {
   const { wish, toggleWishlist, addToCart, openQuickView } = useShop();
   const [imageError, setImageError] = useState(false);
   const [isAdded, setIsAdded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [mobileImageIndex, setMobileImageIndex] = useState(0); // 0 or 1 for mobile swipe/tap
-  const [isHeartAnimating, setIsHeartAnimating] = useState(false);
+  const [mobileImageIndex, setMobileImageIndex] = useState(0);
 
   const touchStartXRef = useRef(null);
 
   const isWishlisted = wish.includes(product.id);
-  const productName = product.n || product.name || 'Artisanal Handloom Saree';
-  const productPrice = product.p || product.price || 2499;
+  const productName = product.name || product.n || 'Artisanal Handloom Saree';
+  const productPrice = product.price || product.p || 2499;
+  const originalPrice = product.originalPrice || Math.round(productPrice * 1.35);
 
   // Retrieve curated 4-image set for this product
   const productImages = getProductImages(product);
@@ -44,17 +44,25 @@ export function ProductCard({ product, index = 0 }) {
     e.preventDefault();
     e.stopPropagation();
     if (isAdded) return;
-    addToCart(product);
+    addToCart({
+      id: product.id,
+      name: productName,
+      n: productName,
+      price: productPrice,
+      p: productPrice,
+      image: primaryImage,
+      category: product.category || 'Silk Sarees',
+      fabric: product.fabric || 'Pure Handloom Silk',
+      q: 1,
+    });
     setIsAdded(true);
-    setTimeout(() => setIsAdded(false), 800);
+    setTimeout(() => setIsAdded(false), 900);
   };
 
   const handleWishlistToggle = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsHeartAnimating(true);
     toggleWishlist(product.id);
-    setTimeout(() => setIsHeartAnimating(false), 500);
   };
 
   const handleOpenQuickView = (e) => {
@@ -68,172 +76,149 @@ export function ProductCard({ product, index = 0 }) {
   };
 
   return (
-    <div className="product-wave-card h-full">
+    <div
+      className={`group relative flex flex-col justify-between h-full rounded-2xl p-2.5 sm:p-3 transition-all duration-400 ease-out hover:-translate-y-1.5 ${
+        isLight
+          ? 'bg-[#FAF7F2] border border-[#D9C5A5] text-[#29201E] shadow-sm hover:shadow-xl hover:border-[#C9A43B]'
+          : 'bg-[#29201E]/60 border border-gold/20 text-ivory shadow-md hover:shadow-2xl hover:border-gold/50'
+      }`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        setMobileImageIndex(0);
+      }}
+    >
+      {/* Saree Image Container (Fixed 3:4 aspect ratio) */}
       <div
-        className="glass-card group rounded-2xl p-2 sm:p-2.5 h-full flex flex-col justify-between transition-all duration-300 ease-out hover:-translate-y-1.5 motion-reduce:hover:translate-y-0 motion-reduce:transition-none hover:border-[#D4AF37]/45 hover:shadow-[0_18px_40px_rgba(0,0,0,0.55),0_0_20px_rgba(212,175,55,0.18)]"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => {
-          setIsHovered(false);
-          setMobileImageIndex(0);
-        }}
+        className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-charcoal select-none cursor-pointer"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onClick={handleOpenQuickView}
       >
-        {/* Saree Image Container (Fixed 3:4 aspect ratio) */}
-        <div
-          className="product-image-container relative aspect-[3/4] overflow-hidden rounded-xl bg-[#2D060E] select-none cursor-pointer"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-          onClick={handleOpenQuickView}
-        >
-          {/* Foundation Gradient Textures (Fabric Tones) */}
-          <div
-            className="product-image-layer absolute inset-0 transition-transform duration-1000 ease-out group-hover:scale-105 motion-reduce:group-hover:scale-100"
-            style={{
-              background:
-                TONES[product.a] ||
-                'linear-gradient(160deg, #380710 0%, #681220 50%, #4F0B17 100%)',
-            }}
-          />
-          <div
-            className="product-image-layer absolute inset-0 opacity-0 group-hover:opacity-60 transition-opacity duration-700 ease-out"
-            style={{
-              background:
-                TONES[product.b] ||
-                'linear-gradient(150deg, #5c1a3a, #b6446b)',
-            }}
-          />
-          <div className="leaf absolute -inset-4 mix-blend-multiply opacity-40 pointer-events-none" />
+        {/* Primary Studio / Catalog Flatlay */}
+        <img
+          src={primaryImage}
+          alt={productName}
+          className={`absolute inset-0 w-full h-full object-cover object-top transition-all duration-700 ease-in-out ${
+            isShowingSecondary
+              ? 'opacity-0 scale-105 pointer-events-none'
+              : 'opacity-100 scale-100'
+          }`}
+        />
 
-          {/* Saree Product Images with Smooth Dual-Layer Crossfade */}
-          {primaryImage && !imageError ? (
-            <>
-              {/* Primary Flatlay / Catalog Shot */}
-              <img
-                src={primaryImage}
-                alt={productName}
-                loading="lazy"
-                onError={() => setImageError(true)}
-                className={`absolute inset-0 w-full h-full object-cover object-top transition-all duration-700 ease-in-out will-change-[opacity,transform] ${
-                  isShowingSecondary
-                    ? 'opacity-0 scale-105 pointer-events-none'
-                    : 'opacity-100 scale-100 group-hover:scale-105'
-                }`}
-              />
+        {/* Secondary Editorial Draped Shot (revealed on hover/swipe) */}
+        {secondaryImage && (
+          <img
+            src={secondaryImage}
+            alt={`${productName} draped`}
+            className={`absolute inset-0 w-full h-full object-cover object-top transition-all duration-700 ease-in-out ${
+              isShowingSecondary
+                ? 'opacity-100 scale-[1.02]'
+                : 'opacity-0 scale-95 pointer-events-none'
+            }`}
+          />
+        )}
 
-              {/* Secondary Draped / Editorial Shot */}
-              {secondaryImage && (
-                <img
-                  src={secondaryImage}
-                  alt={`${productName} alternate draped view`}
-                  loading="lazy"
-                  className={`absolute inset-0 w-full h-full object-cover object-top transition-all duration-700 ease-in-out will-change-[opacity,transform] ${
-                    isShowingSecondary
-                      ? 'opacity-100 scale-[1.03]'
-                      : 'opacity-0 scale-95 pointer-events-none'
-                  }`}
-                />
-              )}
-            </>
+        {/* Product Badges */}
+        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 z-10">
+          {product.badge ? (
+            <span className="px-2 py-0.5 rounded text-[9px] font-sans font-semibold tracking-wider uppercase bg-[#29201E]/90 text-gold border border-gold/30 backdrop-blur-xs">
+              {product.badge}
+            </span>
           ) : (
-            /* Fallback Fabric Medallion when image is unavailable or loading fails */
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center cursor-pointer">
-              <span className="w-12 h-12 rounded-full border border-gold/40 flex items-center justify-center font-primary text-xl text-gold bg-[#240409]/60 backdrop-blur-sm mb-2">
-                V
-              </span>
-              <span className="font-primary text-sm text-[#FBF4E4] font-light">
-                {productName}
-              </span>
-            </div>
+            <span className="px-2 py-0.5 rounded text-[9px] font-sans font-semibold tracking-wider uppercase bg-burgundy/90 text-gold border border-gold/30 backdrop-blur-xs">
+              Handwoven
+            </span>
           )}
-
-          {/* Gradient Vignette at Bottom for Contrast */}
-          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 via-black/25 to-transparent pointer-events-none" />
-
-          {/* Wishlist Button with Filled/Outlined Heart */}
-          <button
-            type="button"
-            onClick={handleWishlistToggle}
-            aria-label={
-              isWishlisted
-                ? `Remove ${productName} from wishlist`
-                : `Add ${productName} to wishlist`
-            }
-            className={`absolute top-2.5 right-2.5 sm:top-3 sm:right-3 w-8 h-8 sm:w-9 sm:h-9 rounded-full border flex items-center justify-center backdrop-blur-md shadow-md transition-all duration-300 z-20 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${
-              isWishlisted
-                ? 'bg-[#2D060E]/90 text-gold border-gold shadow-[0_0_14px_rgba(212,175,55,0.45)]'
-                : 'bg-[#1F0307]/75 text-ivory/80 border-gold/30 hover:text-gold hover:border-gold/70'
-            } ${isHeartAnimating ? 'scale-125' : 'scale-100'}`}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill={isWishlisted ? 'currentColor' : 'none'}
-              stroke="currentColor"
-              strokeWidth="1.3"
-              aria-hidden="true"
-            >
-              {ICONS.heart}
-            </svg>
-          </button>
-
-          {/* Mobile 2-Image Indicator Dots (Tap or swipe to switch views) */}
-          <div
-            className="md:hidden absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-15 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-xs pointer-events-auto"
-            onClick={(e) => {
-              e.stopPropagation();
-              setMobileImageIndex((prev) => (prev === 0 ? 1 : 0));
-            }}
-            title="Tap to preview next image"
-          >
-            <span
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                mobileImageIndex === 0 ? 'w-3 bg-gold' : 'w-1.5 bg-ivory/40'
-              }`}
-            />
-            <span
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                mobileImageIndex === 1 ? 'w-3 bg-gold' : 'w-1.5 bg-ivory/40'
-              }`}
-            />
-          </div>
-
-          {/* Quick View Floating Pill Button (Revealed on desktop hover above quick add) */}
-          <div className="hidden md:flex absolute inset-x-0 bottom-12 px-3 items-center justify-center pointer-events-none z-15">
-            <button
-              type="button"
-              onClick={handleOpenQuickView}
-              className="pointer-events-auto opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 ease-out flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#240409]/95 text-gold border border-gold/50 text-[11px] font-semibold tracking-wide backdrop-blur-md shadow-[0_4px_16px_rgba(0,0,0,0.6)] hover:bg-gold hover:text-forest hover:border-gold active:scale-95"
-              aria-label={`Quick view ${productName}`}
-            >
-              <EyeIcon className="w-3.5 h-3.5" />
-              <span>Quick View</span>
-            </button>
-          </div>
-
-          {/* Quick Add to Bag Button */}
-          <button
-            type="button"
-            onClick={handleQuickAdd}
-            disabled={isAdded}
-            aria-label={`Quick add ${productName} to cart`}
-            className="cap absolute bottom-0 inset-x-0 bg-gold text-forest py-2.5 sm:py-3 font-semibold text-[10px] sm:text-[11px] tracking-wider uppercase translate-y-full group-hover:translate-y-0 group-focus-within:translate-y-0 max-md:translate-y-0 transition-transform duration-400 hover:bg-[#FFF4D4] active:scale-[0.98] shadow-[0_-4px_16px_rgba(212,175,55,0.35)] z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-inset"
-          >
-            {isAdded ? 'Added to Bag ✓' : 'Quick Add +'}
-          </button>
         </div>
 
-        {/* Product Details (Title & Price) */}
-        <div className="px-1.5 pt-2 pb-0.5 flex flex-col justify-between flex-1">
+        {/* Wishlist Heart Button (Top-Right) */}
+        <button
+          type="button"
+          onClick={handleWishlistToggle}
+          className="absolute top-2.5 right-2.5 p-2 rounded-full bg-charcoal/60 backdrop-blur-md text-ivory/80 hover:text-gold transition z-10 shadow-sm"
+          aria-label={isWishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
+        >
+          <HeartIcon
+            filled={isWishlisted}
+            className={`w-4 h-4 ${isWishlisted ? 'text-gold fill-gold' : 'text-ivory'}`}
+          />
+        </button>
+
+        {/* Quick View Floating Magnifier Trigger */}
+        <div className="absolute inset-x-0 bottom-3 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 px-4">
+          <button
+            type="button"
+            onClick={handleOpenQuickView}
+            className="w-full py-2 rounded-full bg-charcoal/90 text-gold backdrop-blur-md border border-gold/40 text-xs font-sans tracking-luxury uppercase font-semibold hover:bg-gold hover:text-charcoal transition-all shadow-lg flex items-center justify-center gap-2"
+          >
+            <EyeIcon className="w-3.5 h-3.5" />
+            <span>Quick View</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Product Information Footer */}
+      <div className="pt-3.5 flex flex-col justify-between flex-1">
+        <div>
+          <span
+            className={`cap-sm block text-[9.5px] ${
+              isLight ? 'text-[#70594B]' : 'text-gold/80'
+            }`}
+          >
+            {product.fabric || 'Pure Silk Handloom'}
+          </span>
+
           <h3
             onClick={handleOpenQuickView}
-            className="font-primary text-base sm:text-lg md:text-xl font-normal leading-snug line-clamp-1 text-[#FBF4E4] hover:text-gold transition-colors duration-200 cursor-pointer"
-            title={productName}
+            className={`font-serif text-base sm:text-lg font-medium truncate mt-0.5 cursor-pointer transition-colors ${
+              isLight
+                ? 'text-[#29201E] group-hover:text-[#720F25]'
+                : 'text-ivory group-hover:text-gold'
+            }`}
           >
             {productName}
           </h3>
-          <p className="cap text-gold mt-1 font-medium tracking-wider text-xs sm:text-sm">
-            {formatINR(productPrice)}
-          </p>
+        </div>
+
+        {/* Pricing and Quick Add Bar */}
+        <div
+          className={`flex items-center justify-between gap-2 mt-3 pt-2.5 border-t ${
+            isLight ? 'border-[#D9C5A5]' : 'border-gold/15'
+          }`}
+        >
+          <div className="flex items-baseline gap-2">
+            <span
+              className={`font-sans text-sm sm:text-base font-semibold ${
+                isLight ? 'text-[#720F25]' : 'text-gold'
+              }`}
+            >
+              {formatINR(productPrice)}
+            </span>
+            {originalPrice > productPrice && (
+              <span
+                className={`font-sans text-xs line-through ${
+                  isLight ? 'text-[#70594B]/60' : 'text-ivory/40'
+                }`}
+              >
+                {formatINR(originalPrice)}
+              </span>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleQuickAdd}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-sans tracking-luxury uppercase font-semibold transition-all duration-300 ${
+              isAdded
+                ? 'bg-gold text-charcoal scale-105 shadow-md'
+                : isLight
+                ? 'bg-[#4A0715] text-[#F5EEE5] hover:bg-[#720F25]'
+                : 'bg-gold text-charcoal hover:bg-champagne'
+            }`}
+          >
+            {isAdded ? '✓ Added' : '+ Add'}
+          </button>
         </div>
       </div>
     </div>

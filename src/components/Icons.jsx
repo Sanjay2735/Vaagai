@@ -73,6 +73,12 @@ export const ICONS = {
       <path d="M9 8a3 3 0 0 1 6 0" />
     </>
   ),
+  user: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c0-4 4-6 8-6s8 2 8 6" />
+    </>
+  ),
   menu: <path d="M3.5 7h17M3.5 12h17M3.5 17h17" />,
   x: <path d="M5.5 5.5l13 13M18.5 5.5l-13 13" />,
   craft: (

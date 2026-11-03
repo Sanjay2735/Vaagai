@@ -1,20 +1,39 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useShop } from '../context/ShopContext';
+import { useCustomerAuth } from '../context/CustomerAuthContext';
+import { CustomerAuthModal } from './CustomerAuthModal';
+import { CustomerAccountModal } from './CustomerAccountModal';
+import { OrderTrackingModal } from './OrderTrackingModal';
 import { Ico, ICONS } from './Icons';
 import { PRODUCTS, formatINR } from '../data/products';
+import { COLLECTION_PRODUCTS, CATEGORIES, FABRICS } from '../data/collectionData';
 
-export function Navbar({ activePageKey = 'collection' }) {
-  const { cart, wish, openCart, addToCart, toggleWishlist } = useShop();
+// Signature preview images for Mega Menu spotlight
+import crimsonSaree from '../assests/images/catalog/saree-crimson-kanjivaram.jpg';
+import ivorySaree from '../assests/images/catalog/saree-ivory-gold.jpg';
+import model1 from '../assests/images/banner/hero-model-1.png';
+import model3 from '../assests/images/banner/hero-model-3.png';
+import logoVaagai from '../assests/images/Logo-Vaagai.jpeg';
+
+export function Navbar({ activePageKey = 'home' }) {
+  const { cart, wish, openCart, addToCart, toggleWishlist, openQuickView } = useShop();
+  const { customer } = useCustomerAuth();
 
   const [open, setOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isWishOpen, setIsWishOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+  const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
+  const [activeTrackingOrderNumber, setActiveTrackingOrderNumber] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [megaMenuOpen, setMegaMenuOpen] = useState(false);
+  const megaMenuTimeoutRef = useRef(null);
 
   const isLight = activePageKey === 'collection';
-  const isSolid = isScrolled || isHovered;
+  const isSolid = isScrolled || isHovered || megaMenuOpen;
 
   const searchInputRef = useRef(null);
   const mobileCloseBtnRef = useRef(null);
@@ -22,7 +41,7 @@ export function Navbar({ activePageKey = 'collection' }) {
   const isBodyLockedRef = useRef(false);
   const originalOverflowRef = useRef('');
 
-  // Passive scroll listener for silky glassmorphism transition without hover flickering
+  // Passive scroll listener for silky glassmorphism transition
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
@@ -32,7 +51,7 @@ export function Navbar({ activePageKey = 'collection' }) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Safely and idempotently lock/restore body scroll when modals open/close
+  // Safely lock body scroll when modals or mobile menu open
   useEffect(() => {
     const isAnyModalOpen = open || isSearchOpen || isWishOpen;
     if (isAnyModalOpen) {
@@ -56,131 +75,130 @@ export function Navbar({ activePageKey = 'collection' }) {
     };
   }, [open, isSearchOpen, isWishOpen]);
 
-  // Keyboard accessibility: Escape key closes active overlay, manage focus
+  // Global event bridge for customer modals & order tracking
+  useEffect(() => {
+    const handleOpenTrack = (e) => {
+      if (e?.detail?.orderNumber) {
+        setActiveTrackingOrderNumber(e.detail.orderNumber);
+      }
+      setIsTrackingModalOpen(true);
+    };
+    const handleOpenAuth = () => setIsAuthModalOpen(true);
+    const handleOpenAccount = () => setIsAccountModalOpen(true);
+
+    window.addEventListener('vaagai:open-tracking', handleOpenTrack);
+    window.addEventListener('vaagai:open-auth', handleOpenAuth);
+    window.addEventListener('vaagai:open-account', handleOpenAccount);
+
+    return () => {
+      window.removeEventListener('vaagai:open-tracking', handleOpenTrack);
+      window.removeEventListener('vaagai:open-auth', handleOpenAuth);
+      window.removeEventListener('vaagai:open-account', handleOpenAccount);
+    };
+  }, []);
+
+  // Keyboard accessibility: Escape key closes active overlay
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        if (isSearchOpen) {
-          setIsSearchOpen(false);
-        } else if (isWishOpen) {
-          setIsWishOpen(false);
-        } else if (open) {
-          setOpen(false);
-        }
+        if (isSearchOpen) setIsSearchOpen(false);
+        else if (isWishOpen) setIsWishOpen(false);
+        else if (open) setOpen(false);
+        else if (megaMenuOpen) setMegaMenuOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, isSearchOpen, isWishOpen]);
+  }, [open, isSearchOpen, isWishOpen, megaMenuOpen]);
 
   // Autofocus input when search modal opens
   useEffect(() => {
     if (isSearchOpen) {
       const timer = setTimeout(() => {
         searchInputRef.current?.focus();
-      }, 50);
+      }, 60);
       return () => clearTimeout(timer);
     }
   }, [isSearchOpen]);
 
-  // Focus close button when wishlist drawer opens
-  useEffect(() => {
-    if (isWishOpen) {
-      const timer = setTimeout(() => {
-        wishCloseBtnRef.current?.focus();
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [isWishOpen]);
-
-  // Focus close button when mobile drawer opens
-  useEffect(() => {
-    if (open) {
-      const timer = setTimeout(() => {
-        mobileCloseBtnRef.current?.focus();
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [open]);
-
   const count = cart.reduce((acc, curr) => acc + curr.q, 0);
 
-  // Filter products for search modal
+  // Search results query across PRODUCTS and COLLECTION_PRODUCTS
   const trimmedQuery = searchQuery.trim().toLowerCase();
   const searchResults = trimmedQuery
-    ? PRODUCTS.filter(
-        (p) =>
-          p.n.toLowerCase().includes(trimmedQuery) ||
-          (p.a && p.a.toLowerCase().includes(trimmedQuery)) ||
-          (p.b && p.b.toLowerCase().includes(trimmedQuery))
-      )
+    ? [...COLLECTION_PRODUCTS, ...PRODUCTS]
+        .filter((p, idx, self) => {
+          const name = p.name || p.n || '';
+          const cat = p.category || '';
+          const fab = p.fabric || '';
+          const match =
+            name.toLowerCase().includes(trimmedQuery) ||
+            cat.toLowerCase().includes(trimmedQuery) ||
+            fab.toLowerCase().includes(trimmedQuery);
+          return match && self.findIndex((x) => x.id === p.id) === idx;
+        })
+        .slice(0, 8)
     : [];
 
   // Filter wishlisted products from catalog
-  const wishItems = PRODUCTS.filter((p) => wish.includes(p.id));
+  const wishItems = COLLECTION_PRODUCTS.filter((p) => wish.includes(p.id));
 
-  // Elegant navigation link with active state indicator
-  const NavLink = ({ href, children, onClick }) => {
+  // Mega Menu Hover Delays to prevent flickering
+  const handleMegaEnter = () => {
+    if (megaMenuTimeoutRef.current) clearTimeout(megaMenuTimeoutRef.current);
+    setMegaMenuOpen(true);
+  };
+
+  const handleMegaLeave = () => {
+    megaMenuTimeoutRef.current = setTimeout(() => {
+      setMegaMenuOpen(false);
+    }, 180);
+  };
+
+  // Elegant navigation link
+  const NavLink = ({ href, children, onMouseEnter, onMouseLeave, hasDropdown = false }) => {
     const isLinkActive =
       (href === '#new-arrivals' && activePageKey === 'new-arrivals') ||
       ((href === '#collection' || href === '#/collection') && activePageKey === 'collection') ||
       ((href === '#kalakaari' || href === '#/kalakaari') && activePageKey === 'kalakaari') ||
       ((href === '#home' || href === '#/home') && activePageKey === 'home');
 
-    const handleClick = (e) => {
-      if (onClick) onClick(e);
-
-      if (href && href.startsWith('#')) {
-        const isPageNav =
-          href === '#collection' ||
-          href === '#/collection' ||
-          href === '#women-new' ||
-          href === '#/women-new' ||
-          href === '#kalakaari' ||
-          href === '#/kalakaari' ||
-          href === '#new-arrivals' ||
-          href === '#/new-arrivals' ||
-          href === '#home' ||
-          href === '#/home';
-        const currentHash = window.location.hash || '#/collection';
-        const isCurrentHome = currentHash === '#home' || currentHash === '#/home';
-
-        if (!isPageNav && isCurrentHome) {
-          const targetId = href.replace(/^#\/?/, '#');
-          if (targetId === '#' || targetId === '#/') {
-            window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
-          } else {
-            setTimeout(() => {
-              const el = document.querySelector(targetId);
-              if (el) {
-                el.classList.add('scroll-visible');
-                const navbar = document.querySelector('header, nav');
-                const navbarHeight = navbar ? navbar.offsetHeight : 80;
-                const elementTop = el.getBoundingClientRect().top + window.scrollY;
-                window.scrollTo({
-                  top: Math.max(0, elementTop - navbarHeight - 16),
-                  left: 0,
-                  behavior: 'smooth',
-                });
-              }
-            }, 30);
-          }
-        }
-      }
-    };
-
     return (
-      <a
-        href={href}
-        onClick={handleClick}
-        className={`relative py-1 font-primary text-xs tracking-widest uppercase font-medium transition-colors duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-[1.5px] after:bg-gradient-to-r after:from-transparent after:via-[#D4AF37] after:to-transparent after:transition-transform after:duration-300 after:origin-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded ${
-          isLinkActive
-            ? 'text-gold after:scale-x-100 shadow-[0_1px_8px_rgba(212,175,55,0.25)]'
-            : 'text-ivory hover:text-gold after:scale-x-0 hover:after:scale-x-100'
-        }`}
+      <div
+        className="relative py-2"
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
       >
-        {children}
-      </a>
+        <a
+          href={href}
+          className={`relative inline-flex items-center gap-1 font-sans text-xs tracking-luxury uppercase font-medium transition-all duration-300 ${
+            isLinkActive
+              ? 'text-gold font-semibold'
+              : 'text-ivory/90 hover:text-gold'
+          }`}
+        >
+          <span>{children}</span>
+          {hasDropdown && (
+            <svg
+              className={`w-3 h-3 transition-transform duration-300 text-gold/80 ${
+                megaMenuOpen ? 'rotate-180 text-gold' : ''
+              }`}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          )}
+          {/* Subtle gold line indicator */}
+          <span
+            className={`absolute -bottom-1 left-0 w-full h-[1.5px] bg-gradient-to-r from-transparent via-[#C9A43B] to-transparent transition-transform duration-300 ${
+              isLinkActive ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'
+            }`}
+          />
+        </a>
+      </div>
     );
   };
 
@@ -188,20 +206,22 @@ export function Navbar({ activePageKey = 'collection' }) {
   const logo = (
     <a
       href="#home"
-      onClick={() => {
-        if (activePageKey === 'home') {
-          window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
-        }
-      }}
-      className="flex flex-col items-center justify-center gap-1 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded-lg px-2 py-0.5 select-none"
-      aria-label="Vaagai - Indian Ethnic Wear"
+      className="flex items-center gap-2.5 sm:gap-3 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded-lg px-2 sm:px-3 py-1 select-none"
+      aria-label="VAAGAI — Contemporary South Indian Heritage"
     >
-      <span className="w-10 h-10 sm:w-11 sm:h-11 rounded-full border border-gold/80 flex items-center justify-center font-primary text-xl sm:text-2xl text-gold group-hover:bg-gold group-hover:text-forest group-hover:shadow-[0_0_18px_rgba(212,175,55,0.5)] transition-all duration-300 bg-[#240409]/60 backdrop-blur-md">
-        V
-      </span>
-      <span className="font-primary text-[8.5px] sm:text-[9.5px] tracking-[0.3em] uppercase text-gold group-hover:text-[#FFF4D4] font-medium transition-colors duration-300 whitespace-nowrap">
-        Vaagai
-      </span>
+      <img
+        src={logoVaagai}
+        alt="VAAGAI Emblem"
+        className="w-9 h-9 sm:w-11 sm:h-11 rounded-full object-cover border border-gold/70 group-hover:border-gold group-hover:scale-105 transition-all duration-400 shadow-[0_0_15px_rgba(201,164,59,0.3)] bg-burgundy shrink-0"
+      />
+      <div className="flex flex-col items-start leading-none">
+        <span className="font-serif tracking-[0.22em] text-xl sm:text-2xl text-ivory group-hover:text-gold font-normal transition-colors duration-300 uppercase">
+          VAAGAI
+        </span>
+        <span className="font-sans text-[7.5px] sm:text-[8.5px] tracking-couture uppercase text-gold/80 group-hover:text-champagne font-medium transition-colors duration-300 mt-1 whitespace-nowrap">
+          South Indian Heritage
+        </span>
+      </div>
     </a>
   );
 
@@ -210,14 +230,16 @@ export function Navbar({ activePageKey = 'collection' }) {
       <header
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className="fixed top-0 inset-x-0 z-40 py-2.5 sm:py-3 transition-all duration-500 ease-out"
-        style={{ paddingTop: 'max(env(safe-area-inset-top), 10px)' }}
+        className="fixed top-0 inset-x-0 z-40 py-2 sm:py-3 transition-all duration-500 ease-out"
+        style={{ paddingTop: 'max(env(safe-area-inset-top), 8px)' }}
       >
-        {/* Full-header glassmorphism overlay with ambient glow */}
+        {/* Full-header glass overlay */}
         <div
-          className={`absolute inset-0 -z-10 transition-opacity duration-500 ease-in-out pointer-events-none ${
-            isSolid ? 'opacity-100' : 'opacity-90'
-          } bg-[#4F0B17]/75 backdrop-blur-[20px] border-b border-gold/20 shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_25px_rgba(79,11,23,0.5),inset_0_1px_0_rgba(255,255,255,0.08)]`}
+          className={`absolute inset-0 -z-10 transition-all duration-500 pointer-events-none ${
+            isSolid
+              ? 'bg-[#29201E]/90 backdrop-blur-xl border-b border-gold/20 shadow-[0_10px_35px_rgba(0,0,0,0.5)]'
+              : 'bg-gradient-to-b from-[#29201E]/80 via-[#29201E]/50 to-transparent backdrop-blur-md border-b border-transparent'
+          }`}
         />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-3 items-center">
@@ -227,7 +249,14 @@ export function Navbar({ activePageKey = 'collection' }) {
             className="hidden md:flex items-center gap-6 lg:gap-8 justify-self-start"
           >
             <NavLink href="#home">Home</NavLink>
-            <NavLink href="#collection">Collection</NavLink>
+            <NavLink
+              href="#collection"
+              hasDropdown={true}
+              onMouseEnter={handleMegaEnter}
+              onMouseLeave={handleMegaLeave}
+            >
+              Collection
+            </NavLink>
             <NavLink href="#kalakaari">Kalakaari</NavLink>
           </nav>
 
@@ -235,72 +264,103 @@ export function Navbar({ activePageKey = 'collection' }) {
           <div className="md:hidden justify-self-start flex items-center">
             <button
               type="button"
-              className="p-1.5 -ml-1.5 text-ivory hover:text-gold active:scale-95 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded-full"
+              className="p-2 -ml-2 text-ivory hover:text-gold active:scale-95 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded-full"
               aria-label={open ? 'Close menu' : 'Open navigation menu'}
               aria-expanded={open}
-              aria-controls="mobile-nav-drawer"
               onClick={() => setOpen(true)}
             >
               <Ico d={ICONS.menu} s={24} />
             </button>
           </div>
 
-          {/* Exact Dead-Center Brand Logo */}
+          {/* Dead-Center Brand Logo */}
           <div className="justify-self-center">{logo}</div>
 
           {/* Right Navigation & Utility Action Controls */}
           <div className="justify-self-end flex items-center gap-4 sm:gap-6 lg:gap-8">
-            {/* Secondary Navigation Links (Desktop lg+) */}
             <nav
               aria-label="Secondary Navigation"
               className="hidden lg:flex items-center gap-6 xl:gap-8"
             >
-              <NavLink href="#new-arrivals">New Arrivals</NavLink>
-              <NavLink href="#collection">Sarees</NavLink>
-              <NavLink href="#home">Our Story</NavLink>
+              <NavLink href="#new-arrivals">Runway</NavLink>
+              <NavLink
+                href="#collection"
+                hasDropdown={true}
+                onMouseEnter={handleMegaEnter}
+                onMouseLeave={handleMegaLeave}
+              >
+                Sarees
+              </NavLink>
+              <NavLink href="#story">Our Story</NavLink>
+              <button
+                type="button"
+                onClick={() => setIsTrackingModalOpen(true)}
+                className="text-[11px] uppercase tracking-widest font-semibold text-ivory/80 hover:text-gold transition-colors focus:outline-none"
+              >
+                Track Order
+              </button>
             </nav>
 
             {/* Utility Action Buttons */}
-            <div className="flex items-center gap-2 sm:gap-3.5">
-              {/* Search Trigger Button */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Search Trigger */}
               <button
                 type="button"
-                aria-label="Search sarees"
+                aria-label="Search catalog"
                 onClick={() => setIsSearchOpen(true)}
                 className="p-2 text-ivory hover:text-gold active:scale-95 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded-full"
               >
                 <Ico d={ICONS.search} s={20} />
               </button>
 
-              {/* Wishlist Trigger Button */}
+              {/* Wishlist Trigger */}
               <button
                 type="button"
-                aria-label={
-                  wish.length > 0 ? `Wishlist, ${wish.length} items` : 'Wishlist, empty'
-                }
+                aria-label={wish.length > 0 ? `Wishlist (${wish.length} items)` : 'Wishlist (empty)'}
                 onClick={() => setIsWishOpen(true)}
                 className="relative p-2 text-ivory hover:text-gold active:scale-95 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded-full"
               >
                 <Ico d={ICONS.heart} s={20} />
                 {wish.length > 0 && (
-                  <span className="absolute top-0 right-0 text-[9px] font-bold bg-gold text-forest rounded-full min-w-4 h-4 px-1 flex items-center justify-center shadow-md">
+                  <span className="absolute top-0 right-0 text-[9px] font-bold bg-gold text-charcoal rounded-full min-w-4 h-4 px-1 flex items-center justify-center shadow-md animate-pulse">
                     {wish.length}
                   </span>
                 )}
               </button>
 
-              {/* Cart Trigger Button */}
+              {/* Patron Account Trigger */}
               <button
                 type="button"
-                aria-label={
-                  count > 0 ? `Shopping cart, ${count} items` : 'Shopping cart, empty'
-                }
+                aria-label={customer ? `Patron Account (${customer.name})` : 'Patron Account Sign In'}
+                onClick={() => {
+                  if (customer) {
+                    setIsAccountModalOpen(true);
+                  } else {
+                    setIsAuthModalOpen(true);
+                  }
+                }}
+                className="relative p-2 text-ivory hover:text-gold active:scale-95 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded-full flex items-center justify-center"
+                title={customer ? `Signed in as ${customer.name}` : 'Patron Sign In / Register'}
+              >
+                {customer ? (
+                  <div className="w-5 h-5 rounded-full bg-[#4A0715] text-[#C9A43B] font-serif font-bold text-[10px] flex items-center justify-center border border-[#C9A43B]/60 shadow-xs">
+                    {customer.name?.charAt(0).toUpperCase()}
+                  </div>
+                ) : (
+                  <Ico d={ICONS.user} s={20} />
+                )}
+              </button>
+
+              {/* Cart / Shopping Bag Trigger */}
+              <button
+                type="button"
+                aria-label={count > 0 ? `Shopping Bag (${count} items)` : 'Shopping Bag (empty)'}
                 onClick={openCart}
                 className="relative p-2 text-ivory hover:text-gold active:scale-95 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded-full"
               >
                 <Ico d={ICONS.bag} s={20} />
                 {count > 0 && (
-                  <span className="absolute top-0 right-0 text-[9px] font-bold bg-gold text-forest rounded-full min-w-4 h-4 px-1 flex items-center justify-center shadow-md">
+                  <span className="absolute top-0 right-0 text-[9px] font-bold bg-gold text-charcoal rounded-full min-w-4 h-4 px-1 flex items-center justify-center shadow-md">
                     {count}
                   </span>
                 )}
@@ -308,10 +368,126 @@ export function Navbar({ activePageKey = 'collection' }) {
             </div>
           </div>
         </div>
+
+        {/* =========================================================
+            SOPHISTICATED EDITORIAL MEGA MENU
+           ========================================================= */}
+        <div
+          onMouseEnter={handleMegaEnter}
+          onMouseLeave={handleMegaLeave}
+          className={`absolute top-full left-0 w-full transition-all duration-400 ease-out pointer-events-none ${
+            megaMenuOpen
+              ? 'opacity-100 translate-y-0 pointer-events-auto visible'
+              : 'opacity-0 -translate-y-2 invisible'
+          }`}
+        >
+          <div className="bg-[#29201E]/95 backdrop-blur-2xl border-b border-gold/30 shadow-[0_25px_60px_rgba(0,0,0,0.8)] py-8 px-6 lg:px-12">
+            <div className="max-w-7xl mx-auto grid grid-cols-12 gap-8 items-start">
+              {/* Column 1: Heritage Weaves */}
+              <div className="col-span-3 space-y-4">
+                <span className="cap-sm text-gold tracking-couture block border-b border-gold/20 pb-2">
+                  Heritage Weaves
+                </span>
+                <ul className="space-y-2.5">
+                  {[
+                    { label: 'Kanjivaram Silk', href: '#collection?fabric=Kanjivaram+Silk' },
+                    { label: 'Banarasi Brocades', href: '#collection?fabric=Banarasi+Silk' },
+                    { label: 'Tussar & Wild Silks', href: '#collection?fabric=Tussar+Silk' },
+                    { label: 'Handloom Cotton', href: '#collection?fabric=Pure+Cotton' },
+                    { label: 'Tissue & Organza', href: '#collection?fabric=Organza' },
+                    { label: 'Chanderi Zari Weaves', href: '#collection?fabric=Chanderi' },
+                  ].map((item) => (
+                    <li key={item.label}>
+                      <a
+                        href={item.href}
+                        onClick={() => setMegaMenuOpen(false)}
+                        className="text-sm font-serif text-ivory/80 hover:text-gold hover:translate-x-1 inline-block transition-all duration-200"
+                      >
+                        {item.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Column 2: Curated Edits */}
+              <div className="col-span-3 space-y-4">
+                <span className="cap-sm text-gold tracking-couture block border-b border-gold/20 pb-2">
+                  Curated Edits
+                </span>
+                <ul className="space-y-2.5">
+                  {[
+                    { label: 'The Heritage Runway Lookbook', href: '#new-arrivals' },
+                    { label: 'Kalakaari Natural Dyes', href: '#kalakaari' },
+                    { label: 'Bridal Trousseau Edit', href: '#collection?occasion=Wedding' },
+                    { label: 'Temple & Festive Classics', href: '#collection?occasion=Festive' },
+                    { label: 'Handcrafted Zardozi Blouses', href: '#collection?category=Blouses' },
+                    { label: 'All Collections Catalog', href: '#collection' },
+                  ].map((item) => (
+                    <li key={item.label}>
+                      <a
+                        href={item.href}
+                        onClick={() => setMegaMenuOpen(false)}
+                        className="text-sm font-serif text-ivory/80 hover:text-gold hover:translate-x-1 inline-block transition-all duration-200"
+                      >
+                        {item.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Column 3: The VAAGAI Craft */}
+              <div className="col-span-3 space-y-4 border-l border-gold/15 pl-6">
+                <span className="cap-sm text-gold tracking-couture block border-b border-gold/20 pb-2">
+                  Textile Philosophy
+                </span>
+                <p className="font-serif italic text-sm text-ivory/70 leading-relaxed">
+                  “Each saree is woven on traditional South Indian pit-looms using genuine silk and pure silver zari electroplated in 24K gold.”
+                </p>
+                <div className="pt-2">
+                  <a
+                    href="#story"
+                    onClick={() => setMegaMenuOpen(false)}
+                    className="inline-flex items-center gap-2 text-xs font-sans tracking-luxury uppercase text-gold hover:text-champagne transition-colors"
+                  >
+                    <span>Read Our Manifesto</span>
+                    <span>→</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Column 4: Editorial Spotlight Visual */}
+              <div className="col-span-3">
+                <a
+                  href="#collection"
+                  onClick={() => setMegaMenuOpen(false)}
+                  className="group block relative aspect-[4/5] rounded-xl overflow-hidden border border-gold/30 shadow-xl"
+                >
+                  <img
+                    src={crimsonSaree}
+                    alt="Royal Crimson Kanjivaram"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-charcoal-dark via-charcoal-dark/30 to-transparent" />
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <span className="cap-sm text-gold block mb-1">Spotlight Drapery</span>
+                    <h4 className="font-serif text-lg text-ivory group-hover:text-gold transition-colors">
+                      Royal Kanjivaram Edition
+                    </h4>
+                    <span className="text-[11px] font-sans tracking-wider uppercase text-ivory/70 mt-1 inline-block group-hover:underline">
+                      Explore Edition →
+                    </span>
+                  </div>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
       </header>
 
       {/* =========================================================
-          1. SEARCH MODAL OVERLAY
+          SEARCH MODAL OVERLAY
          ========================================================= */}
       <div
         className={`fixed inset-0 z-50 transition-all duration-300 ${
@@ -321,17 +497,15 @@ export function Navbar({ activePageKey = 'collection' }) {
         }`}
         role="dialog"
         aria-modal="true"
-        aria-label="Search sarees"
+        aria-label="Search VAAGAI catalog"
       >
-        {/* Dimmed backdrop */}
         <div
           onClick={() => setIsSearchOpen(false)}
-          className="absolute inset-0 bg-black/75 backdrop-blur-md transition-opacity"
+          className="absolute inset-0 bg-black/80 backdrop-blur-md transition-opacity"
         />
 
-        {/* Search Dialog Container */}
-        <div className="relative max-w-2xl mx-auto mt-16 sm:mt-24 px-4 sm:px-6">
-          <div className="bg-gradient-to-b from-[#240409] to-[#120204] border border-gold/40 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.8),0_0_30px_rgba(212,175,55,0.25)] p-5 sm:p-7 overflow-hidden">
+        <div className="relative max-w-2xl mx-auto mt-20 sm:mt-28 px-4 sm:px-6">
+          <div className="bg-[#29201E] border border-gold/40 rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.8)] p-6 sm:p-8 overflow-hidden">
             {/* Search Input Bar */}
             <form
               onSubmit={(e) => e.preventDefault()}
@@ -343,9 +517,9 @@ export function Navbar({ activePageKey = 'collection' }) {
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by saree name, Kalamkari, Kanjivaram, silk..."
-                className="w-full bg-transparent text-ivory placeholder-ivory/50 font-primary text-sm sm:text-base focus:outline-none"
-                aria-label="Search saree catalog"
+                placeholder="Search by weave, Kanjivaram, Kalamkari, silk, bridal..."
+                className="w-full bg-transparent text-ivory placeholder-ivory/40 font-serif text-lg focus:outline-none"
+                aria-label="Search catalog"
               />
               {searchQuery && (
                 <button
@@ -360,27 +534,25 @@ export function Navbar({ activePageKey = 'collection' }) {
               <button
                 type="button"
                 onClick={() => setIsSearchOpen(false)}
-                className="p-1.5 text-gold hover:text-[#FFF4D4] rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold shrink-0"
+                className="p-1.5 text-gold hover:text-champagne rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold shrink-0"
                 aria-label="Close search"
               >
                 <Ico d={ICONS.x} s={22} />
               </button>
             </form>
 
-            {/* Popular Searches Tags (when empty) */}
+            {/* Trending Searches Tags */}
             {!searchQuery && (
-              <div className="pt-4">
-                <p className="font-primary text-[11px] uppercase tracking-wider text-gold/80 mb-2.5">
-                  Popular Searches
-                </p>
+              <div className="pt-5">
+                <p className="cap-sm text-gold/80 mb-3">Trending Searches</p>
                 <div className="flex flex-wrap gap-2">
-                  {['Kanjivaram', 'Kalamkari', 'Tussar', 'Organza', 'Chanderi', 'Cotton'].map(
+                  {['Kanjivaram Silk', 'Kalamkari', 'Bridal Crimson', 'Organza', 'Tissue Gold', 'Pure Cotton', 'Temple Border'].map(
                     (tag) => (
                       <button
                         key={tag}
                         type="button"
                         onClick={() => setSearchQuery(tag)}
-                        className="px-3 py-1 rounded-full text-xs font-primary text-ivory/80 bg-[#3A0710]/60 border border-gold/25 hover:border-gold hover:text-gold transition-all duration-200"
+                        className="px-3.5 py-1.5 rounded-full text-xs font-sans tracking-wide text-ivory/80 bg-burgundy/40 border border-gold/25 hover:border-gold hover:text-gold transition-all duration-200"
                       >
                         {tag}
                       </button>
@@ -392,54 +564,61 @@ export function Navbar({ activePageKey = 'collection' }) {
 
             {/* Live Search Results List */}
             {searchQuery && (
-              <div className="mt-4 max-h-72 overflow-y-auto pr-1 flex flex-col gap-2.5">
+              <div className="mt-5 max-h-80 overflow-y-auto pr-1 flex flex-col gap-3">
                 {searchResults.length > 0 ? (
-                  searchResults.map((product) => (
-                    <div
-                      key={product.id}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-[#3A0710]/40 border border-gold/15 hover:border-gold/40 transition group"
-                    >
-                      <a
-                        href="#women-new"
-                        onClick={() => setIsSearchOpen(false)}
-                        className="flex items-center gap-3.5 flex-1 min-w-0"
+                  searchResults.map((product) => {
+                    const name = product.name || product.n;
+                    const price = product.price || product.p;
+                    const img = product.image;
+                    return (
+                      <div
+                        key={product.id}
+                        className="flex items-center justify-between p-3 rounded-xl bg-burgundy/30 border border-gold/20 hover:border-gold/50 transition group"
                       >
-                        <div className="w-12 h-14 rounded-lg overflow-hidden bg-forest/80 shrink-0 border border-gold/20">
-                          {product.image && (
-                            <img
-                              src={product.image}
-                              alt={product.n}
-                              className="w-full h-full object-cover object-top"
-                            />
-                          )}
+                        <div
+                          onClick={() => {
+                            setIsSearchOpen(false);
+                            if (openQuickView) openQuickView(product);
+                          }}
+                          className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer"
+                        >
+                          <div className="w-12 h-14 rounded-lg overflow-hidden bg-charcoal shrink-0 border border-gold/20">
+                            {img && (
+                              <img
+                                src={img}
+                                alt={name}
+                                className="w-full h-full object-cover object-top"
+                              />
+                            )}
+                          </div>
+                          <div className="truncate">
+                            <p className="font-serif text-base text-ivory group-hover:text-gold transition truncate">
+                              {name}
+                            </p>
+                            <p className="font-sans text-xs text-gold font-medium mt-0.5">
+                              {formatINR(price)}
+                            </p>
+                          </div>
                         </div>
-                        <div className="truncate">
-                          <p className="font-primary text-sm sm:text-base text-ivory group-hover:text-gold transition truncate">
-                            {product.n}
-                          </p>
-                          <p className="font-primary text-xs text-gold font-medium">
-                            {formatINR(product.p)}
-                          </p>
-                        </div>
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          addToCart(product);
-                          setIsSearchOpen(false);
-                        }}
-                        className="px-3 py-1.5 rounded-full text-xs font-primary uppercase tracking-wider font-semibold bg-gold text-forest hover:bg-[#FFF4D4] transition shrink-0 ml-3"
-                      >
-                        Add to Bag
-                      </button>
-                    </div>
-                  ))
+                        <button
+                          type="button"
+                          onClick={() => {
+                            addToCart(product);
+                            setIsSearchOpen(false);
+                          }}
+                          className="px-4 py-1.5 rounded-full text-xs font-sans tracking-luxury uppercase font-semibold bg-gold text-charcoal hover:bg-champagne transition shrink-0 ml-3"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    );
+                  })
                 ) : (
-                  <div className="py-8 text-center text-ivory/70 font-primary text-sm">
+                  <div className="py-10 text-center text-ivory/70 font-serif text-base">
                     No sarees found matching{' '}
-                    <span className="text-gold">"{searchQuery}"</span>.
-                    <p className="text-xs text-ivory/50 mt-1">
-                      Try searching for Kalamkari, Silk, or Organza.
+                    <span className="text-gold italic">"{searchQuery}"</span>.
+                    <p className="font-sans text-xs text-ivory/50 mt-1 uppercase tracking-wider">
+                      Try searching for Kanjivaram, Kalamkari, or Silk.
                     </p>
                   </div>
                 )}
@@ -450,7 +629,7 @@ export function Navbar({ activePageKey = 'collection' }) {
       </div>
 
       {/* =========================================================
-          2. WISHLIST SLIDE-OVER DRAWER
+          WISHLIST SLIDE-OVER DRAWER
          ========================================================= */}
       <div
         className={`fixed inset-0 z-50 transition-[visibility] duration-300 ${
@@ -458,32 +637,29 @@ export function Navbar({ activePageKey = 'collection' }) {
         }`}
         role="dialog"
         aria-modal="true"
-        aria-label="Your Royal Wishlist"
+        aria-label="Your Curated Wishlist"
       >
-        {/* Dark Backdrop */}
         <div
           onClick={() => setIsWishOpen(false)}
-          className={`absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-300 ${
+          className={`absolute inset-0 bg-black/75 backdrop-blur-sm transition-opacity duration-300 ${
             isWishOpen ? 'opacity-100' : 'opacity-0'
           }`}
         />
 
-        {/* Drawer Panel */}
         <aside
-          className={`absolute right-0 top-0 h-full w-full max-w-md bg-gradient-to-b from-[#240409] via-[#1A0307] to-[#120204] border-l border-gold/30 shadow-[-15px_0_40px_rgba(0,0,0,0.8)] p-6 sm:p-7 flex flex-col justify-between transition-transform duration-400 ease-out ${
+          className={`absolute right-0 top-0 h-full w-full max-w-md bg-[#29201E] border-l border-gold/30 shadow-[-20px_0_50px_rgba(0,0,0,0.8)] p-6 sm:p-8 flex flex-col justify-between transition-transform duration-400 ease-out ${
             isWishOpen ? 'translate-x-0' : 'translate-x-full'
           }`}
         >
           <div>
-            {/* Header */}
-            <div className="flex items-center justify-between pb-5 border-b border-gold/30">
+            <div className="flex items-center justify-between pb-5 border-b border-gold/25">
               <div className="flex items-center gap-2.5">
                 <Ico d={ICONS.heart} s={22} className="text-gold" />
-                <h2 className="font-primary text-xl sm:text-2xl text-ivory tracking-wide">
-                  Royal Wishlist
+                <h2 className="font-serif text-2xl text-ivory tracking-wide">
+                  Curated Wishlist
                 </h2>
                 {wish.length > 0 && (
-                  <span className="text-xs font-primary uppercase tracking-widest text-gold/80 ml-1">
+                  <span className="text-xs font-sans tracking-widest text-gold ml-1">
                     ({wish.length})
                   </span>
                 )}
@@ -492,75 +668,80 @@ export function Navbar({ activePageKey = 'collection' }) {
                 ref={wishCloseBtnRef}
                 type="button"
                 onClick={() => setIsWishOpen(false)}
-                className="p-1.5 text-gold hover:text-[#FFF4D4] rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                className="p-1.5 text-gold hover:text-champagne rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
                 aria-label="Close wishlist"
               >
                 <Ico d={ICONS.x} s={22} />
               </button>
             </div>
 
-            {/* Items list or empty state */}
-            <div className="mt-6 max-h-[calc(100vh-160px)] overflow-y-auto pr-1 flex flex-col gap-3.5">
-              {wishItems.length === 0 ? (
+            <div className="mt-6 max-h-[calc(100vh-180px)] overflow-y-auto pr-1 flex flex-col gap-3.5">
+              {wish.length === 0 ? (
                 <div className="py-16 text-center flex flex-col items-center gap-4">
                   <span className="w-16 h-16 rounded-full border border-gold/30 grid place-items-center text-gold/60">
                     <Ico d={ICONS.heart} s={28} />
                   </span>
-                  <h3 className="font-primary text-lg text-ivory">Your Wishlist is Empty</h3>
-                  <p className="font-primary text-xs text-ivory/60 max-w-xs leading-relaxed">
+                  <h3 className="font-serif text-xl text-ivory">Your Wishlist is Empty</h3>
+                  <p className="font-serif italic text-sm text-ivory/70 max-w-xs leading-relaxed">
                     Curate your royal wardrobe by saving handcrafted sarees you adore.
                   </p>
                   <a
-                    href="#women-new"
+                    href="#collection"
                     onClick={() => setIsWishOpen(false)}
-                    className="mt-2 inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-gold text-forest font-primary text-xs uppercase tracking-widest font-semibold hover:bg-[#FFF4D4] transition"
+                    className="btn-gold mt-2 text-xs"
                   >
                     Explore Collections
                   </a>
                 </div>
               ) : (
-                wishItems.map((product) => (
-                  <div
-                    key={product.id}
-                    className="flex items-center gap-3.5 p-3 rounded-xl bg-[#3A0710]/40 border border-gold/20"
-                  >
-                    <div className="w-16 h-20 rounded-lg overflow-hidden bg-forest shrink-0 border border-gold/25">
-                      {product.image && (
+                wish.map((id) => {
+                  const product =
+                    COLLECTION_PRODUCTS.find((p) => p.id === id) ||
+                    PRODUCTS.find((p) => p.id === id) ||
+                    { id, name: `Artisanal Saree #${id}`, price: 2899, image: crimsonSaree };
+                  const name = product.name || product.n;
+                  const price = product.price || product.p;
+
+                  return (
+                    <div
+                      key={id}
+                      className="flex items-center gap-4 p-3 rounded-xl bg-burgundy/25 border border-gold/20"
+                    >
+                      <div className="w-16 h-20 rounded-lg overflow-hidden bg-charcoal shrink-0 border border-gold/25">
                         <img
-                          src={product.image}
-                          alt={product.n}
+                          src={product.image || crimsonSaree}
+                          alt={name}
                           className="w-full h-full object-cover object-top"
                         />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-primary text-base text-ivory truncate">{product.n}</h4>
-                      <p className="font-primary text-sm text-gold font-medium mt-0.5">
-                        {formatINR(product.p)}
-                      </p>
-                      <div className="flex items-center gap-3 mt-2.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            addToCart(product);
-                            toggleWishlist(product.id);
-                          }}
-                          className="text-[11px] font-primary uppercase tracking-wider font-semibold text-gold hover:text-[#FFF4D4] underline underline-offset-2 transition"
-                        >
-                          Move to Bag
-                        </button>
-                        <span className="text-gold/40 text-xs">|</span>
-                        <button
-                          type="button"
-                          onClick={() => toggleWishlist(product.id)}
-                          className="text-[11px] font-primary uppercase tracking-wider text-ivory/60 hover:text-red-400 transition"
-                        >
-                          Remove
-                        </button>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-serif text-base text-ivory truncate">{name}</h4>
+                        <p className="font-sans text-xs text-gold font-medium mt-0.5">
+                          {formatINR(price)}
+                        </p>
+                        <div className="flex items-center gap-3 mt-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              addToCart(product);
+                              toggleWishlist(id);
+                            }}
+                            className="text-xs font-sans tracking-luxury uppercase font-semibold text-gold hover:text-champagne transition"
+                          >
+                            Move to Bag →
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleWishlist(id)}
+                            className="text-xs font-sans tracking-wide text-ivory/50 hover:text-ivory transition"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -568,138 +749,140 @@ export function Navbar({ activePageKey = 'collection' }) {
       </div>
 
       {/* =========================================================
-          3. MOBILE NAVIGATION DRAWER
+          RESPONSIVE MOBILE NAVIGATION DRAWER
          ========================================================= */}
       <div
-        id="mobile-nav-drawer"
-        className={`fixed inset-0 z-50 md:hidden transition-[visibility] duration-300 ${
+        className={`fixed inset-0 z-50 transition-[visibility] duration-300 md:hidden ${
           open ? 'visible pointer-events-auto' : 'invisible pointer-events-none'
         }`}
         role="dialog"
         aria-modal="true"
-        aria-label="Navigation Menu"
+        aria-label="Mobile Navigation"
       >
-        {/* Backdrop */}
         <div
           onClick={() => setOpen(false)}
-          className={`absolute inset-0 bg-black/75 backdrop-blur-sm transition-opacity duration-300 ${
+          className={`absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity duration-300 ${
             open ? 'opacity-100' : 'opacity-0'
           }`}
         />
 
-        {/* Aside Drawer */}
         <aside
-          className={`absolute left-0 top-0 h-full w-full max-w-xs sm:max-w-sm bg-gradient-to-b from-[#240409] via-[#1A0307] to-[#120204] border-r border-gold/30 p-6 sm:p-8 flex flex-col justify-between transition-transform duration-400 ease-out overflow-y-auto ${
+          className={`absolute left-0 top-0 h-full w-[85%] max-w-sm bg-[#29201E] border-r border-gold/30 p-6 flex flex-col justify-between transition-transform duration-300 ease-out ${
             open ? 'translate-x-0' : '-translate-x-full'
           }`}
-          style={{
-            paddingTop: 'max(env(safe-area-inset-top), 24px)',
-            paddingBottom: 'max(env(safe-area-inset-bottom), 24px)',
-          }}
         >
           <div>
-            {/* Drawer Top Header with Brand & Close Button */}
             <div className="flex items-center justify-between pb-6 border-b border-gold/25">
-              <a
-                href="#/"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 group"
-              >
-                <span className="w-9 h-9 rounded-full border border-gold flex items-center justify-center font-primary text-lg text-gold bg-[#3A0710]/60">
-                  V
-                </span>
-                <span className="font-primary text-[10px] tracking-[0.25em] uppercase text-gold font-medium">
-                  Vaagai
-                </span>
-              </a>
+              <div className="flex items-center gap-3">
+                <img
+                  src={logoVaagai}
+                  alt="VAAGAI Emblem"
+                  className="w-9 h-9 rounded-full object-cover border border-gold/70 shadow-sm bg-burgundy shrink-0"
+                />
+                <div className="flex flex-col leading-none">
+                  <span className="font-serif text-xl tracking-[0.2em] text-ivory uppercase">
+                    VAAGAI
+                  </span>
+                  <span className="font-sans text-[7.5px] tracking-couture text-gold mt-1 uppercase">
+                    South Indian Heritage
+                  </span>
+                </div>
+              </div>
               <button
                 ref={mobileCloseBtnRef}
                 type="button"
                 onClick={() => setOpen(false)}
-                className="p-1.5 text-gold hover:text-[#FFF4D4] rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                className="p-1.5 text-gold hover:text-champagne"
                 aria-label="Close menu"
               >
                 <Ico d={ICONS.x} s={22} />
               </button>
             </div>
 
-            {/* Navigation Links Stack */}
-            <nav aria-label="Mobile Navigation" className="flex flex-col gap-4 sm:gap-5 mt-6">
-              <NavLink href="#home" onClick={() => setOpen(false)}>
-                Home
-              </NavLink>
-              <NavLink href="#collection" onClick={() => setOpen(false)}>
-                Collection
-              </NavLink>
-              <NavLink href="#kalakaari" onClick={() => setOpen(false)}>
-                Kalakaari
-              </NavLink>
-              <NavLink href="#new-arrivals" onClick={() => setOpen(false)}>
-                New Arrivals
-              </NavLink>
-              <NavLink href="#collection" onClick={() => setOpen(false)}>
-                Sarees
-              </NavLink>
-              <NavLink href="#home" onClick={() => setOpen(false)}>
-                Our Story
-              </NavLink>
+            <nav className="mt-8 flex flex-col space-y-4">
+              {[
+                { label: 'Home', href: '#home' },
+                { label: 'Collection', href: '#collection' },
+                { label: 'Kalakaari', href: '#kalakaari' },
+                { label: 'The Runway Lookbook', href: '#new-arrivals' },
+                { label: 'Sarees', href: '#collection' },
+                { label: 'Our Story', href: '#story' },
+              ].map((item) => (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  onClick={() => setOpen(false)}
+                  className="font-serif text-xl text-ivory hover:text-gold transition-colors py-1.5 border-b border-gold/10 flex items-center justify-between"
+                >
+                  <span>{item.label}</span>
+                  <span className="text-gold text-sm font-sans">→</span>
+                </a>
+              ))}
+
+              {/* Track Drape Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  setIsTrackingModalOpen(true);
+                }}
+                className="font-serif text-xl text-ivory hover:text-gold transition-colors py-1.5 border-b border-gold/10 flex items-center justify-between text-left"
+              >
+                <span>Track Drape Delivery</span>
+                <span className="text-gold text-sm font-sans">→</span>
+              </button>
+
+              {/* Patron Profile Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  if (customer) {
+                    setIsAccountModalOpen(true);
+                  } else {
+                    setIsAuthModalOpen(true);
+                  }
+                }}
+                className="font-serif text-xl text-gold hover:text-champagne transition-colors py-1.5 border-b border-gold/10 flex items-center justify-between text-left font-bold"
+              >
+                <span>{customer ? `Patron: ${customer.name}` : 'Sign In / Register'}</span>
+                <span className="text-gold text-sm font-sans">✦</span>
+              </button>
             </nav>
           </div>
 
-          {/* Mobile Action Controls at bottom of drawer */}
-          <div className="pt-6 border-t border-gold/25 flex flex-col gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                setIsSearchOpen(true);
-              }}
-              className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#3A0710]/50 border border-gold/20 text-ivory hover:text-gold transition font-primary text-xs uppercase tracking-wider font-medium"
-            >
-              <Ico d={ICONS.search} s={18} className="text-gold" />
-              Search Collections
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                setIsWishOpen(true);
-              }}
-              className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-[#3A0710]/50 border border-gold/20 text-ivory hover:text-gold transition font-primary text-xs uppercase tracking-wider font-medium"
-            >
-              <span className="flex items-center gap-3">
-                <Ico d={ICONS.heart} s={18} className="text-gold" />
-                My Wishlist
-              </span>
-              {wish.length > 0 && (
-                <span className="text-[10px] font-bold bg-gold text-forest px-2 py-0.5 rounded-full">
-                  {wish.length}
-                </span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                openCart();
-              }}
-              className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-gold text-forest font-primary text-xs uppercase tracking-wider font-semibold hover:bg-[#FFF4D4] transition"
-            >
-              <span className="flex items-center gap-3">
-                <Ico d={ICONS.bag} s={18} />
-                Shopping Bag
-              </span>
-              {count > 0 && (
-                <span className="text-[10px] font-bold bg-forest text-gold px-2 py-0.5 rounded-full">
-                  {count}
-                </span>
-              )}
-            </button>
+          <div className="pt-6 border-t border-gold/20">
+            <p className="cap-sm text-gold/80 mb-2">Bespoke Concierge</p>
+            <p className="font-serif italic text-xs text-ivory/70">
+              Personalized styling & bridal assistance:
+            </p>
+            <p className="font-sans text-xs text-gold mt-1">+91 98765 43210</p>
           </div>
         </aside>
       </div>
+
+      {/* Customer Modals */}
+      <CustomerAuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccess={() => setIsAccountModalOpen(true)}
+      />
+      <CustomerAccountModal
+        isOpen={isAccountModalOpen}
+        onClose={() => setIsAccountModalOpen(false)}
+        onTrackOrder={(ordNum) => {
+          setActiveTrackingOrderNumber(ordNum);
+          setIsTrackingModalOpen(true);
+        }}
+      />
+      <OrderTrackingModal
+        isOpen={isTrackingModalOpen}
+        initialOrderNumber={activeTrackingOrderNumber}
+        onClose={() => {
+          setIsTrackingModalOpen(false);
+          setActiveTrackingOrderNumber('');
+        }}
+      />
     </>
   );
 }

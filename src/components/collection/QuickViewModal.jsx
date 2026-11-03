@@ -459,6 +459,17 @@ export function QuickViewModal({ product: rawProduct, initialVariantIndex = 0, i
                 <HeartIcon filled={isWishlisted} className="w-5 h-5" />
               </button>
             </div>
+
+            {/* Direct Link to Full Product Detail Page */}
+            <div className="pt-2 text-center">
+              <a
+                href={`#product/${product.id}`}
+                onClick={onClose}
+                className="font-sans text-xs tracking-luxury uppercase text-gold hover:text-champagne transition-colors inline-block py-1"
+              >
+                View Full Editorial Specifications →
+              </a>
+            </div>
           </div>
         </div>
       </div>

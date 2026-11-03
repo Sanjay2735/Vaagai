@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
+import logoVaagai from '../assests/images/Logo-Vaagai.jpeg';
 
 const luxuryEase = [0.72, 0, 0.18, 1];
 
@@ -206,9 +207,7 @@ export default function PageTransition({ activeKey, children }) {
         <div className="flex flex-col items-center gap-2 select-none opacity-95 relative z-10">
           <div className="relative">
             {/* Medallion */}
-            <span className="w-16 h-16 rounded-full border-2 border-gold/80 flex items-center justify-center font-primary text-3xl text-[#F5D982] shadow-[0_0_30px_rgba(212,175,55,0.5),inset_0_0_15px_rgba(212,175,55,0.3)] bg-[#28050B]/75 backdrop-blur-sm">
-              V
-            </span>
+            <div className="w-16 h-16 rounded-full border-2 border-gold/80 overflow-hidden shadow-[0_0_30px_rgba(212,175,55,0.5),inset_0_0_15px_rgba(212,175,55,0.3)] bg-[#28050B]"><img src={logoVaagai} alt="VAAGAI" className="w-full h-full object-cover" /></div>
             {/* Outer orbital ring */}
             <div className="absolute -inset-2 rounded-full border border-gold/35 shadow-[0_0_15px_rgba(212,175,55,0.2)] pointer-events-none" />
           </div>

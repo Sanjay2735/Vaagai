@@ -1,8 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useShop } from '../context/ShopContext';
-import { TONES } from '../data/tones';
-import { PRODUCTS, formatINR } from '../data/products';
-import { Ico, ICONS, Arrow } from './Icons';
+import { formatINR } from '../data/products';
+import { Ico, ICONS } from './Icons';
 
 export function CartDrawer() {
   const { cart, isCartOpen, closeCart, setQty, removeFromCart } = useShop();
@@ -10,10 +9,16 @@ export function CartDrawer() {
   const closeBtnRef = useRef(null);
   const previousActiveElement = useRef(null);
 
-  const subtotal = cart.reduce((acc, item) => acc + item.p * item.q, 0);
+  const subtotal = cart.reduce((acc, item) => acc + (item.p || item.price || 0) * item.q, 0);
   const totalItemsCount = cart.reduce((acc, item) => acc + item.q, 0);
 
-  // Keyboard accessibility: Escape key to close & focus management
+  // Free shipping threshold
+  const freeShippingThreshold = 2000;
+  const isFreeShipping = subtotal >= freeShippingThreshold || totalItemsCount === 0;
+  const amountNeeded = Math.max(0, freeShippingThreshold - subtotal);
+  const progressPercent = Math.min(100, (subtotal / freeShippingThreshold) * 100);
+
+  // Escape key & focus management
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && isCartOpen) {
@@ -24,8 +29,6 @@ export function CartDrawer() {
     if (isCartOpen) {
       previousActiveElement.current = document.activeElement;
       window.addEventListener('keydown', handleKeyDown);
-
-      // Smooth focus on close button
       const timer = setTimeout(() => {
         closeBtnRef.current?.focus();
       }, 50);
@@ -39,7 +42,7 @@ export function CartDrawer() {
     }
   }, [isCartOpen, closeCart]);
 
-  // Lock body scroll when drawer is open
+  // Lock body scroll
   useEffect(() => {
     if (isCartOpen) {
       const originalOverflow = document.body.style.overflow;
@@ -50,44 +53,48 @@ export function CartDrawer() {
     }
   }, [isCartOpen]);
 
+  const handleCheckout = () => {
+    closeCart();
+    window.location.hash = '#checkout';
+  };
+
   return (
     <div
-      className={`fixed inset-0 z-[60] transition-[visibility] duration-400 ${
+      className={`fixed inset-0 z-[60] transition-[visibility] duration-300 ${
         isCartOpen ? 'visible pointer-events-auto' : 'invisible pointer-events-none'
       }`}
       aria-hidden={!isCartOpen}
     >
-      {/* Dark Backdrop with smooth blur fade */}
+      {/* Dark Backdrop */}
       <div
         onClick={closeCart}
-        className={`absolute inset-0 bg-black/65 backdrop-blur-sm transition-opacity duration-350 ease-out ${
+        className={`absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity duration-300 ${
           isCartOpen ? 'opacity-100' : 'opacity-0'
         }`}
       />
 
-      {/* Right Slide-in Drawer Container */}
+      {/* Slide-in Drawer Container */}
       <aside
         ref={drawerRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="cart-drawer-title"
-        tabIndex={-1}
-        className={`absolute right-0 top-0 h-full w-full max-w-md bg-gradient-to-b from-[#3D0813]/95 via-[#4F0B17]/92 to-[#34050E]/95 backdrop-blur-2xl border-l border-gold/25 flex flex-col shadow-[-20px_0_50px_rgba(0,0,0,0.6),0_0_35px_rgba(79,11,23,0.4)] transition-transform duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${
+        className={`absolute right-0 top-0 h-full w-full max-w-md bg-[#29201E] border-l border-gold/30 flex flex-col shadow-[-25px_0_60px_rgba(0,0,0,0.8)] transition-transform duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${
           isCartOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         {/* Drawer Header */}
-        <div className="flex justify-between items-center p-5 sm:p-6 border-b border-gold/20">
+        <div className="flex justify-between items-center p-6 border-b border-gold/20">
           <div className="flex items-center gap-3">
             <h3
               id="cart-drawer-title"
-              className="font-primary text-2xl sm:text-3xl font-normal text-[#FBF4E4]"
+              className="font-serif text-2xl sm:text-3xl text-ivory font-normal"
             >
-              Your Bag
+              Shopping Bag
             </h3>
             {totalItemsCount > 0 && (
-              <span className="cap glass-pill text-gold px-2.5 py-0.5 rounded-full text-xs font-primary font-medium border border-gold/30">
-                {totalItemsCount} {totalItemsCount === 1 ? 'item' : 'items'}
+              <span className="cap-sm text-gold px-2.5 py-0.5 rounded-full border border-gold/30 bg-burgundy/40">
+                {totalItemsCount} {totalItemsCount === 1 ? 'drape' : 'drapes'}
               </span>
             )}
           </div>
@@ -95,120 +102,125 @@ export function CartDrawer() {
             ref={closeBtnRef}
             onClick={closeCart}
             aria-label="Close bag"
-            className="w-9 h-9 rounded-full border border-gold/30 text-gold hover:bg-gold/15 focus-visible:ring-2 focus-visible:ring-gold transition grid place-items-center"
+            className="w-9 h-9 rounded-full border border-gold/30 text-gold hover:bg-gold hover:text-charcoal transition flex items-center justify-center"
           >
             <Ico d={ICONS.x} s={20} />
           </button>
         </div>
 
+        {/* Free Shipping Progress Indicator */}
+        <div className="bg-burgundy/30 px-6 py-3 border-b border-gold/15">
+          <div className="flex items-center justify-between text-xs font-sans mb-1.5">
+            <span className="text-ivory/80">
+              {isFreeShipping
+                ? '✦ Complimentary Insured Courier Shipping Unlocked'
+                : `Add ${formatINR(amountNeeded)} more for Free Insured Courier Delivery`}
+            </span>
+          </div>
+          <div className="w-full h-1 bg-charcoal rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gold transition-all duration-300"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </div>
+
         {/* Drawer Body */}
         {cart.length === 0 ? (
-          /* Empty Cart State */
-          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-            <div className="w-20 h-20 rounded-full border border-gold/30 bg-forest/40 backdrop-blur-md grid place-items-center text-gold/75 shadow-[0_0_25px_rgba(212,175,55,0.15)] mb-5">
+          /* Empty Bag State */
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <div className="w-20 h-20 rounded-full border border-gold/30 bg-burgundy/30 grid place-items-center text-gold mb-6 shadow-md">
               <Ico d={ICONS.bag} s={36} />
             </div>
-            <h4 className="font-primary text-2xl font-normal text-[#FBF4E4]">
+            <h4 className="font-serif text-2xl text-ivory font-normal">
               Your Bag is Empty
             </h4>
-            <p className="font-primary italic text-base text-ivory/70 max-w-xs mt-2 leading-relaxed">
-              Discover the season’s most exquisite handloom and Kalamkari silks.
+            <p className="font-serif italic text-sm text-ivory/70 max-w-xs mt-2 leading-relaxed">
+              Discover the season’s most exquisite handloom Kanjivaram and Kalamkari silks.
             </p>
             <a
-              href="#women-new"
+              href="#collection"
               onClick={closeCart}
-              className="btn cap mt-7 rounded-full px-7 py-3 text-xs inline-flex items-center gap-2.5 group"
+              className="btn-gold text-xs mt-8"
             >
               Explore Collections
-              <span className="transform transition-transform group-hover:translate-x-1 duration-300">
-                <Arrow />
-              </span>
             </a>
           </div>
         ) : (
           /* Cart Items List */
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3.5">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
             {cart.map((item) => {
-              const imageSrc =
-                item.image || PRODUCTS.find((p) => p.id === item.id)?.image;
+              const name = item.name || item.n || 'Artisanal Saree';
+              const price = item.price || item.p || 0;
+              const img = item.image;
 
               return (
                 <div
                   key={item.id}
-                  className="glass-card flex gap-3.5 sm:gap-4 items-center p-3 sm:p-3.5 rounded-2xl border border-gold/15 hover:border-gold/35 transition-all"
+                  className="flex gap-4 p-3.5 rounded-xl bg-burgundy/25 border border-gold/20 items-center justify-between"
                 >
-                  {/* High-Resolution Saree Thumbnail */}
-                  <div className="w-20 h-24 sm:w-22 sm:h-28 shrink-0 rounded-xl overflow-hidden relative border border-gold/20 bg-[#2D060E] shadow-md">
-                    <div
-                      className="absolute inset-0"
-                      style={{
-                        background:
-                          TONES[item.a] ||
-                          'linear-gradient(160deg, #380710, #4F0B17)',
-                      }}
-                    />
-                    {imageSrc ? (
+                  {/* Thumbnail */}
+                  <div className="w-18 h-22 rounded-lg overflow-hidden bg-charcoal shrink-0 border border-gold/25">
+                    {img && (
                       <img
-                        src={imageSrc}
-                        alt={item.n}
-                        className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 hover:scale-105"
-                        loading="lazy"
+                        src={img}
+                        alt={name}
+                        className="w-full h-full object-cover object-top"
                       />
-                    ) : (
-                      <div className="absolute inset-0 grid place-items-center font-primary text-gold/40 text-xl font-normal">
-                        M
-                      </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent pointer-events-none" />
                   </div>
 
-                  {/* Product Details & Actions */}
-                  <div className="flex-1 min-w-0 flex flex-col justify-between self-stretch py-0.5">
-                    <div>
-                      <div className="flex justify-between items-start gap-2">
-                        <h4 className="font-primary text-base sm:text-lg leading-snug font-normal text-[#FBF4E4] truncate">
-                          {item.n}
-                        </h4>
-                        <span className="cap text-gold font-primary font-medium text-xs sm:text-sm shrink-0">
-                          {formatINR(item.p * item.q)}
-                        </span>
-                      </div>
-                      <p className="text-ivory/60 text-xs mt-0.5">
-                        Unit: {formatINR(item.p)}
-                      </p>
-                    </div>
+                  {/* Details */}
+                  <div className="flex-1 min-w-0 pr-2">
+                    <span className="cap-sm text-gold/80 block text-[9px]">
+                      {item.fabric || 'Pure Silk Handloom'}
+                    </span>
+                    <h5 className="font-serif text-base text-ivory truncate mt-0.5">
+                      {name}
+                    </h5>
+                    <p className="font-sans text-sm text-gold font-medium mt-1">
+                      {formatINR(price)}
+                    </p>
 
-                    {/* Quantity Controls & Remove Action */}
-                    <div className="flex items-center justify-between gap-3 mt-3">
-                      <div className="flex items-center gap-2">
+                    {/* Quantity Stepper */}
+                    <div className="flex items-center gap-2 mt-3">
+                      <div className="flex items-center border border-gold/30 rounded-full bg-charcoal p-0.5">
                         <button
-                          onClick={() => setQty(item.id, Math.max(1, item.q - 1))}
-                          disabled={item.q <= 1}
-                          aria-label={`Decrease quantity of ${item.n}`}
-                          className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border border-gold/40 text-gold hover:bg-gold hover:text-forest active:scale-95 focus-visible:ring-2 focus-visible:ring-gold transition grid place-items-center text-sm disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gold"
+                          type="button"
+                          onClick={() => setQty(item.id, item.q - 1)}
+                          className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-ivory/80 hover:text-gold"
+                          aria-label="Decrease quantity"
                         >
                           −
                         </button>
-                        <span className="text-ivory font-primary text-sm w-6 text-center font-medium">
+                        <span className="w-7 text-center font-sans text-xs font-semibold text-ivory">
                           {item.q}
                         </span>
                         <button
+                          type="button"
                           onClick={() => setQty(item.id, item.q + 1)}
-                          aria-label={`Increase quantity of ${item.n}`}
-                          className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border border-gold/40 text-gold hover:bg-gold hover:text-forest active:scale-95 focus-visible:ring-2 focus-visible:ring-gold transition grid place-items-center text-sm"
+                          className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-ivory/80 hover:text-gold"
+                          aria-label="Increase quantity"
                         >
                           +
                         </button>
                       </div>
 
                       <button
+                        type="button"
                         onClick={() => removeFromCart(item.id)}
-                        aria-label={`Remove ${item.n} from bag`}
-                        className="cap text-xs text-ivory/50 hover:text-gold hover:underline transition-colors flex items-center gap-1 py-1 px-1.5 focus-visible:ring-1 focus-visible:ring-gold rounded"
+                        className="text-[11px] font-sans text-ivory/50 hover:text-red-400 transition ml-2"
                       >
                         Remove
                       </button>
                     </div>
+                  </div>
+
+                  {/* Item Subtotal */}
+                  <div className="text-right shrink-0">
+                    <span className="font-sans text-sm font-semibold text-ivory">
+                      {formatINR(price * item.q)}
+                    </span>
                   </div>
                 </div>
               );
@@ -216,35 +228,43 @@ export function CartDrawer() {
           </div>
         )}
 
-        {/* Drawer Footer: Subtotal & Checkout */}
-        <div className="p-5 sm:p-6 border-t border-gold/25 bg-[#3B0711]/60">
-          <div className="flex justify-between items-baseline cap mb-1.5">
-            <span className="text-sm font-medium tracking-wider">Subtotal</span>
-            <span className="text-gold font-primary text-lg font-semibold tracking-wide">
-              {formatINR(subtotal)}
-            </span>
-          </div>
-          <p className="text-[11px] text-ivory/60 mb-5">
-            Taxes included · Complimentary luxury shipping
-          </p>
+        {/* Drawer Footer with Subtotal & Checkout Action */}
+        {cart.length > 0 && (
+          <div className="p-6 border-t border-gold/20 bg-charcoal-dark/95 space-y-4">
+            <div className="space-y-1.5 text-xs font-sans">
+              <div className="flex justify-between text-ivory/70">
+                <span>Subtotal</span>
+                <span className="font-medium text-ivory">{formatINR(subtotal)}</span>
+              </div>
+              <div className="flex justify-between text-ivory/70">
+                <span>Transit Insurance &amp; Courier</span>
+                <span className="text-gold font-medium">COMPLIMENTARY</span>
+              </div>
+              <div className="flex justify-between text-base font-serif pt-2 border-t border-gold/15 text-ivory">
+                <span className="font-medium">Total</span>
+                <span className="font-sans text-lg font-semibold text-gold">
+                  {formatINR(subtotal)}
+                </span>
+              </div>
+            </div>
 
-          <button
-            onClick={() => {
-              if (cart.length > 0) {
-                // Keep connected cleanly without invented payment simulation
-                window.location.hash = '#checkout';
-                closeCart();
-              }
-            }}
-            disabled={cart.length === 0}
-            className="btn cap w-full justify-center group disabled:opacity-40 disabled:cursor-not-allowed rounded-full py-3.5 text-xs sm:text-sm font-medium shadow-[0_0_20px_rgba(212,175,55,0.2)] hover:shadow-[0_0_35px_rgba(212,175,55,0.45)] transition-all"
-          >
-            Checkout{' '}
-            <span className="transform transition-transform group-hover:translate-x-1 duration-300">
-              <Arrow />
-            </span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={handleCheckout}
+              className="w-full btn-gold text-xs py-3.5 shadow-xl"
+            >
+              Proceed to Secure Checkout →
+            </button>
+
+            <button
+              type="button"
+              onClick={closeCart}
+              className="w-full text-center text-xs font-sans tracking-luxury uppercase text-ivory/60 hover:text-gold transition py-1"
+            >
+              Continue Exploring Catalog
+            </button>
+          </div>
+        )}
       </aside>
     </div>
   );

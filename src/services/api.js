@@ -12,7 +12,7 @@ const TOKEN_KEY = 'vaagai_auth_token_v1';
  */
 export function getAuthToken() {
   try {
-    return localStorage.getItem(TOKEN_KEY);
+    return localStorage.getItem('vaagai_customer_token') || localStorage.getItem(TOKEN_KEY);
   } catch {
     return null;
   }

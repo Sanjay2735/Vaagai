@@ -3,13 +3,15 @@ import cors from 'cors';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 
-import { testConnection } from './config/db.js';
+import { testConnection, query } from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import productRoutes from './routes/productRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
 import newsletterRoutes from './routes/newsletterRoutes.js';
 import contactRoutes from './routes/contactRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
+import { validateCoupon } from './controllers/adminController.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 import path from 'path';
@@ -61,7 +63,7 @@ app.get('/api/health', async (req, res) => {
     version: '1.0.0',
     timestamp: new Date().toISOString(),
     database: {
-      type: 'PostgreSQL',
+      type: dbStatus.type || 'PostgreSQL',
       connected: dbStatus.ok,
       message: dbStatus.message,
     },
@@ -69,6 +71,30 @@ app.get('/api/health', async (req, res) => {
 });
 
 // Mount modular API routers
+app.use('/api/admin', adminRoutes);
+app.post('/api/coupons/validate', validateCoupon);
+
+// Public CMS and Storefront settings endpoints
+app.get('/api/content/:section', async (req, res, next) => {
+  try {
+    const { section } = req.params;
+    const result = await query('SELECT content_json FROM homepage_cms WHERE section_key = $1', [section]);
+    if (result.rows.length === 0) return res.json({ success: true, content: null });
+    res.json({ success: true, section, content: JSON.parse(result.rows[0].content_json) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get('/api/settings', async (req, res, next) => {
+  try {
+    const result = await query('SELECT store_name, tagline, support_email, support_phone, address, currency, free_shipping_threshold, standard_shipping_fee, tax_percentage, announcement_text, announcement_enabled FROM store_settings LIMIT 1');
+    res.json({ success: true, settings: result.rows[0] || {} });
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);

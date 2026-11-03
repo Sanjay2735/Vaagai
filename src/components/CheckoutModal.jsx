@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useShop } from '../context/ShopContext';
+import { useCustomerAuth } from '../context/CustomerAuthContext';
 import { formatINR } from '../data/products';
 import { Ico, ICONS, Arrow } from './Icons';
 import { createOrder } from '../services/api';
 
 export function CheckoutModal({ isOpen, onClose }) {
   const { cart, clearCart } = useShop();
+  const { customer, getAddresses } = useCustomerAuth();
 
   const [formData, setFormData] = useState({
     customerName: '',
@@ -19,6 +21,35 @@ export function CheckoutModal({ isOpen, onClose }) {
     notes: '',
   });
 
+  // Prefill authenticated customer details
+  useEffect(() => {
+    if (customer && isOpen) {
+      setFormData(prev => ({
+        ...prev,
+        customerName: prev.customerName || customer.name || '',
+        email: prev.email || customer.email || '',
+        phone: prev.phone || customer.phone || '',
+      }));
+      getAddresses().then(addrs => {
+        if (addrs && addrs.length > 0) {
+          const def = addrs.find(a => a.is_default) || addrs[0];
+          setFormData(prev => ({
+            ...prev,
+            shippingAddress: prev.shippingAddress || def.street_address,
+            city: prev.city || def.city,
+            state: prev.state || def.state,
+            postalCode: prev.postalCode || def.postal_code,
+          }));
+        }
+      });
+    }
+  }, [customer, isOpen]);
+
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponError, setCouponError] = useState('');
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [completedOrder, setCompletedOrder] = useState(null);
@@ -27,6 +58,34 @@ export function CheckoutModal({ isOpen, onClose }) {
   const firstInputRef = useRef(null);
 
   const subtotal = cart.reduce((acc, item) => acc + item.p * item.q, 0);
+  const discountAmount = appliedCoupon?.calculatedDiscount || 0;
+  const finalTotal = Math.max(0, subtotal - discountAmount);
+
+  const handleApplyCoupon = async (e) => {
+    e.preventDefault();
+    if (!couponInput.trim()) return;
+    setValidatingCoupon(true);
+    setCouponError('');
+    try {
+      const res = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: couponInput.trim(), cartTotal: subtotal }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAppliedCoupon(data.coupon);
+        setCouponError('');
+      } else {
+        setCouponError(data.message || 'Invalid promotional code.');
+        setAppliedCoupon(null);
+      }
+    } catch {
+      setCouponError('Unable to validate code at this time.');
+    } finally {
+      setValidatingCoupon(false);
+    }
+  };
 
   // Focus management & Escape key listener
   useEffect(() => {
@@ -106,6 +165,8 @@ export function CheckoutModal({ isOpen, onClose }) {
         country: 'India',
         paymentMethod: formData.paymentMethod,
         notes: formData.notes,
+        couponCode: appliedCoupon?.code || null,
+        discountAmount: discountAmount,
         items: cart,
       };
 
@@ -248,17 +309,33 @@ export function CheckoutModal({ isOpen, onClose }) {
                 <span className="text-gold">{completedOrder.email}</span>.
               </p>
 
-              <button
-                onClick={() => {
-                  setCompletedOrder(null);
-                  onClose();
-                  window.location.hash = '#/';
-                }}
-                className="btn cap rounded-full px-8 py-3 text-xs inline-flex items-center gap-2"
-              >
-                Return to Store
-                <Arrow />
-              </button>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ordNum = completedOrder.order_number;
+                    setCompletedOrder(null);
+                    onClose();
+                    window.dispatchEvent(new CustomEvent('vaagai:open-tracking', { detail: { orderNumber: ordNum } }));
+                  }}
+                  className="btn cap rounded-full px-7 py-3 text-xs inline-flex items-center gap-2 bg-[#C9A43B] text-[#29201E] font-bold hover:bg-[#B9953B]"
+                >
+                  Track Drape Delivery
+                  <Arrow />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCompletedOrder(null);
+                    onClose();
+                    window.location.hash = '#/';
+                  }}
+                  className="cap rounded-full px-6 py-3 text-xs text-ivory/80 hover:text-white border border-gold/30 hover:border-gold transition-colors"
+                >
+                  Continue Shopping
+                </button>
+              </div>
             </div>
           ) : (
             /* ========================================================
@@ -406,6 +483,50 @@ export function CheckoutModal({ isOpen, onClose }) {
                 </div>
               </div>
 
+              {/* Promotional Privilege Code (Coupons) */}
+              <div className="p-4 rounded-2xl bg-[#3A0710]/40 border border-gold/25 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-primary text-xs uppercase tracking-widest text-gold">
+                    Patron Privilege Code / Coupon
+                  </span>
+                  <span className="text-[10px] text-ivory/50">e.g. VAAGAI10</span>
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                    placeholder="ENTER CODE"
+                    className="flex-1 bg-[#180306]/80 border border-gold/25 rounded-xl px-3.5 py-2 text-xs text-ivory placeholder-ivory/40 font-mono tracking-wider focus:outline-none focus:border-gold transition uppercase"
+                  />
+                  <button
+                    type="button"
+                    disabled={validatingCoupon || !couponInput.trim()}
+                    onClick={handleApplyCoupon}
+                    className="px-4 py-2 bg-gold/20 hover:bg-gold/30 text-gold border border-gold/40 text-xs font-semibold rounded-xl transition disabled:opacity-40"
+                  >
+                    {validatingCoupon ? 'Checking...' : 'Apply Code'}
+                  </button>
+                </div>
+
+                {appliedCoupon && (
+                  <div className="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs flex justify-between items-center">
+                    <div>
+                      <p className="font-bold">✓ Coupon "{appliedCoupon.code}" Applied!</p>
+                      <p className="text-[10px] text-emerald-300/80">{appliedCoupon.description}</p>
+                    </div>
+                    <span className="font-bold text-sm">
+                      -{formatINR(discountAmount)}
+                    </span>
+                  </div>
+                )}
+
+                {couponError && (
+                  <p className="text-xs text-red-300 font-medium">✕ {couponError}</p>
+                )}
+              </div>
+
               {/* Payment Method */}
               <div>
                 <h4 className="font-primary text-sm uppercase tracking-widest text-gold mb-3">
@@ -492,7 +613,12 @@ export function CheckoutModal({ isOpen, onClose }) {
                     </span>
                   ) : (
                     <>
-                      Place Royal Order ({formatINR(subtotal)})
+                      Place Royal Order ({formatINR(finalTotal)})
+                      {discountAmount > 0 && (
+                        <span className="text-[10px] text-gold/80 block sm:inline sm:ml-1">
+                          (Saved {formatINR(discountAmount)})
+                        </span>
+                      )}
                       <span className="transform transition-transform group-hover:translate-x-1 duration-300">
                         <Arrow />
                       </span>

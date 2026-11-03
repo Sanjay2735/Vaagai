@@ -5,6 +5,7 @@ import { CollectionToolbar } from './CollectionToolbar';
 import { CollectionProductCard } from './CollectionProductCard';
 import { MobileFilterDrawer } from './MobileFilterDrawer';
 import { CollectionPagination } from './CollectionPagination';
+import bannerImg from '../../assests/images/banner/banner-1.png';
 import {
   CATEGORIES,
   COLORS,
@@ -183,8 +184,46 @@ export function CollectionPage({
       className="min-h-screen bg-transparent text-ivory selection:bg-gold/30"
     >
       {/* ========================================================
-          1. COLLECTION TOOLBAR — FIRST ELEMENT ON THE PAGE
-          (Strictly NO hero banner, NO promotional banner, NO intro)
+          EDITORIAL COLLECTION BANNER
+         ======================================================== */}
+      <div className="relative py-16 sm:py-24 px-4 sm:px-6 lg:px-8 bg-[#29201E] border-b border-gold/25 overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none opacity-20">
+          <img
+            src={bannerImg}
+            alt="VAAGAI Handloom Heritage"
+            className="w-full h-full object-cover object-center filter blur-[1px]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#29201E] via-[#29201E]/80 to-transparent" />
+        </div>
+
+        <div className="relative z-10 max-w-7xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2.5 px-3.5 py-1 rounded-full border border-gold/30 bg-burgundy/50 backdrop-blur-md mb-4">
+            <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+            <span className="cap-sm text-gold tracking-couture">
+              {pageMode === 'kalakaari' ? 'Sacred Hand-Painted Artistry' : 'Haute Handloom Archives'}
+            </span>
+          </div>
+
+          <h1 className="font-serif text-4xl sm:text-6xl md:text-7xl font-normal text-ivory tracking-tight">
+            {pageMode === 'kalakaari' ? 'The Kalakaari Collection' : 'The Couture Saree Edit'}
+          </h1>
+
+          <p className="font-serif italic text-base sm:text-xl text-ivory/80 max-w-2xl mx-auto mt-4 leading-relaxed">
+            {pageMode === 'kalakaari'
+              ? 'Rare organic botanical dyes and intricate temple motifs drawn with bamboo reed pens on hand-spun wild tussar and mulberry silk.'
+              : 'Authentic South Indian Kanjivaram, Banarasi, and Chanderi drapes woven with pure gold zari by master artisan families.'}
+          </p>
+
+          <div className="mt-6 flex items-center justify-center gap-4 text-xs font-sans tracking-luxury uppercase text-gold">
+            <span>Showing {filteredProducts.length} of {products.length} Archival Pieces</span>
+            <span>✦</span>
+            <span>Silk Mark Certified Purity</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================
+          1. COLLECTION TOOLBAR
          ======================================================== */}
       <CollectionToolbar
         categories={categories}

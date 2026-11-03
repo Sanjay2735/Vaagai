@@ -7,6 +7,7 @@ import navyTussar from '../assests/images/catalog/saree-navy-tussar.jpg';
 import maroonBlouse from '../assests/images/catalog/blouse-maroon-zardozi.jpg';
 import cottonSaree from '../assests/images/catalog/saree-handloom-cotton.jpg';
 import sageKurta from '../assests/images/catalog/kurta-chikankari-sage.jpg';
+import { PRODUCTS } from './products';
 
 import model1 from '../assests/images/banner/hero-model-1.png';
 import model2 from '../assests/images/banner/hero-model-2.png';
@@ -1849,4 +1850,27 @@ export const KALAKAARI_PRODUCTS = [
     ],
   },
 ];
+
+/**
+ * Universal product locator across all collections, runways and edits
+ */
+export function findProductAnywhere(id) {
+  if (!id) return null;
+  const targetId = String(id).trim();
+
+  // 1. Search in Collection Products
+  const inCollection = COLLECTION_PRODUCTS.find((p) => String(p.id) === targetId);
+  if (inCollection) return normalizeProduct(inCollection);
+
+  // 2. Search in Kalakaari Products
+  const inKalakaari = KALAKAARI_PRODUCTS.find((p) => String(p.id) === targetId);
+  if (inKalakaari) return normalizeProduct(inKalakaari);
+
+  // 3. Search in Homepage PRODUCTS
+  const inProducts = PRODUCTS.find((p) => String(p.id) === targetId);
+  if (inProducts) return normalizeProduct(inProducts);
+
+  return null;
+}
+
 

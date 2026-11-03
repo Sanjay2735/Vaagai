@@ -5,6 +5,8 @@ import {
   getOrderByNumber,
   getAllOrders,
   updateOrderStatus,
+  cancelOrder,
+  requestOrderReturn,
 } from '../controllers/orderController.js';
 import { authenticateToken, optionalAuth, requireAdmin } from '../middleware/auth.js';
 
@@ -18,6 +20,10 @@ router.get('/my', authenticateToken, getMyOrders);
 
 // Track specific order
 router.get('/:orderNumber', optionalAuth, getOrderByNumber);
+
+// Post-purchase actions: Cancel & Return
+router.post('/:orderNumber/cancel', optionalAuth, cancelOrder);
+router.post('/:orderNumber/return', optionalAuth, requestOrderReturn);
 
 // Admin-only management routes
 router.get('/', authenticateToken, requireAdmin, getAllOrders);

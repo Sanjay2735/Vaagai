@@ -1,69 +1,97 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Divider } from './Divider';
 import { PRODUCTS } from '../data/products';
+import { COLLECTION_PRODUCTS } from '../data/collectionData';
 import { ProductCard } from './ProductCard';
 import { Arrow } from './Icons';
 
 export function NewCollections({ isPage = false }) {
-  // Balanced vertical spacing: provides ample clearance under the fixed navbar on the full page
-  const paddingClasses = isPage
-    ? 'pt-28 pb-16 sm:pt-32 sm:pb-20 md:pt-36 md:pb-24'
-    : 'pt-12 pb-16 sm:pt-14 sm:pb-20 md:pt-16 md:pb-24';
+  const [activeFilter, setActiveFilter] = useState('All');
+
+  // Merge products for rich discovery
+  const allNewProducts = COLLECTION_PRODUCTS.filter((p) => p.isNew || p.id).slice(0, 8);
+
+  const filters = ['All', 'Kanjivaram', 'Kalamkari', 'Organza', 'Cotton'];
+
+  const filteredList =
+    activeFilter === 'All'
+      ? allNewProducts
+      : allNewProducts.filter((p) => {
+          const text = `${p.name} ${p.fabric} ${p.category}`.toLowerCase();
+          return text.includes(activeFilter.toLowerCase());
+        });
 
   return (
     <section
       id="new"
-      aria-labelledby="new-collections-title"
-      className={`section-bloom relative px-3.5 sm:px-6 lg:px-8 text-center overflow-hidden ${paddingClasses}`}
+      aria-labelledby="new-arrivals-title"
+      className="relative bg-[#FAF7F2] text-[#29201E] py-24 sm:py-32 px-4 sm:px-6 lg:px-8 border-t border-[#D9C5A5] overflow-hidden"
     >
-      {/* Ambient background bloom glow with soft rose & burgundy warmth */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none -z-10">
-        <div className="w-[500px] md:w-[750px] h-[500px] md:h-[750px] rounded-full bg-rose-950/20 blur-[140px]" />
-      </div>
+      {/* Subtle background ornamentation */}
+      <div className="absolute top-10 right-10 w-96 h-96 bg-[#E9D9BF]/40 rounded-full blur-[120px] pointer-events-none" />
 
-      {/* Subtle organic ambient leaf texture */}
-      <div className="leaf absolute -inset-10 opacity-40 pointer-events-none" />
+      <div className="relative z-10 max-w-7xl mx-auto">
+        {/* Editorial Section Heading */}
+        <div className="text-center max-w-2xl mx-auto mb-14 sm:mb-18">
+          <span className="cap-sm text-[#720F25] tracking-couture block mb-2">
+            Spring Summer MMXXVI · Just Unboxed
+          </span>
+          <h2
+            id="new-arrivals-title"
+            className="font-serif text-4xl sm:text-6xl md:text-7xl font-normal text-[#29201E] tracking-tight"
+          >
+            New Arrivals
+          </h2>
 
-      {/* Heading Area with editorial typography and staggered scroll reveal */}
-      <div className="relative max-w-2xl mx-auto mb-8 sm:mb-10 md:mb-12">
-        <p className="cap text-gold tracking-[0.25em] text-xs sm:text-sm font-medium uppercase reveal-item stagger-1">
-          New Collections
-        </p>
+          <div className="my-3 flex justify-center">
+            <div className="h-px w-24 bg-gradient-to-r from-transparent via-[#C9A43B] to-transparent" />
+          </div>
 
-        <h2
-          id="new-collections-title"
-          className="font-primary text-3xl sm:text-5xl md:text-6xl lg:text-7xl mt-2 sm:mt-2.5 md:mt-3 text-[#FBF4E4] font-normal tracking-wide drop-shadow-[0_4px_24px_rgba(0,0,0,0.6)] reveal-item stagger-2"
-        >
-          For Women
-        </h2>
+          <p className="font-serif italic text-base sm:text-xl text-[#70594B] max-w-lg mx-auto leading-relaxed">
+            Woven in morning light, draped in heirloom grace — the season’s most anticipated pit-loom releases.
+          </p>
 
-        <div className="reveal-item stagger-divider my-2.5 sm:my-3 flex justify-center">
-          <Divider />
+          {/* Filter Pills */}
+          <div className="flex flex-wrap items-center justify-center gap-2.5 mt-8">
+            {filters.map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                onClick={() => setActiveFilter(filter)}
+                className={`px-4 py-2 rounded-full text-xs font-sans tracking-luxury uppercase transition-all duration-300 ${
+                  activeFilter === filter
+                    ? 'bg-[#4A0715] text-[#F5EEE5] font-semibold shadow-md'
+                    : 'bg-[#E9D9BF]/60 text-[#29201E]/80 hover:bg-[#D9C5A5]'
+                }`}
+              >
+                {filter}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <p className="font-primary italic text-sm sm:text-base md:text-lg lg:text-xl text-ivory/90 max-w-md sm:max-w-xl mx-auto leading-relaxed reveal-item stagger-3 drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
-          Woven in light, draped in grace — the season’s finest, curated for you.
-        </p>
-      </div>
-
-      {/* Premium Collection Showcase Grid: 2 cols mobile, 2 cols tablet, 4 cols desktop */}
-      <div className="relative max-w-7xl mx-auto">
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 lg:gap-6 text-left">
-          {PRODUCTS.map((product, index) => (
-            <ProductCard key={product.id} product={product} index={index} />
+        {/* Fashion Editorial Product Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 text-left">
+          {filteredList.map((product, index) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              index={index}
+              isLight={true}
+            />
           ))}
         </div>
 
-        {/* Explore Full Catalog CTA (displayed when embedded in the homepage) */}
+        {/* Bottom CTA to Full Catalog */}
         {!isPage && (
-          <div className="mt-10 sm:mt-12 md:mt-14 text-center reveal-item stagger-4">
+          <div className="mt-14 sm:mt-18 text-center">
             <a
-              href="#women-new"
-              aria-label="Explore the full Vaagai collection for women"
-              className="group relative inline-flex items-center gap-3 px-6 sm:px-8 py-3 sm:py-3.5 rounded-full bg-gradient-to-r from-[#D4AF37] via-[#E8C872] to-[#D4AF37] text-forest font-primary text-xs sm:text-sm uppercase tracking-widest font-semibold shadow-[0_4px_20px_rgba(212,175,55,0.35)] hover:shadow-[0_6px_28px_rgba(212,175,55,0.55)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-forest"
+              href="#collection"
+              className="btn-burgundy group"
+              aria-label="Explore Full VAAGAI Catalog"
             >
-              <span>Explore Full Catalog</span>
-              <span className="transform transition-transform duration-300 group-hover:translate-x-1.5 shrink-0">
+              <span>Explore Full Saree Catalog</span>
+              <span className="transition-transform duration-300 group-hover:translate-x-1.5">
                 <Arrow size={18} />
               </span>
             </a>
