@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import Database from 'better-sqlite3';
+let Database = null;
 import bcrypt from 'bcryptjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -21,10 +21,20 @@ let sqliteDb = null;
 let isSqliteMode = false;
 let dbInitialized = false;
 
-// Path for SQLite storage
+// Dynamically load SQLite only when not in serverless (e.g. Vercel)
+const isVercel = Boolean(process.env.VERCEL || process.env.NOW_REGION);
+if (!isVercel) {
+  try {
+    const mod = await import('better-sqlite3');
+    Database = mod.default;
+  } catch {}
+}
+
 const dataDir = path.resolve(__dirname, '../../data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+if (!isVercel && !fs.existsSync(dataDir)) {
+  try {
+    fs.mkdirSync(dataDir, { recursive: true });
+  } catch {}
 }
 const sqlitePath = path.join(dataDir, 'vaagai.db');
 
@@ -98,6 +108,9 @@ pool.connect = function(cb) {
 };
 
 function getSqlite() {
+  if (!Database) {
+    throw new Error('SQLite engine is not available. Please ensure DATABASE_URL is configured for PostgreSQL.');
+  }
   if (!sqliteDb) {
     sqliteDb = new Database(sqlitePath);
     sqliteDb.pragma('journal_mode = WAL');
